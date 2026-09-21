@@ -1,0 +1,1341 @@
+<!DOCTYPE html>
+<html lang="id">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Sharing Bersama MNO - Konsolidasi Strategis & Matriks Benang Merah</title>
+    <!-- Tailwind CSS CDN -->
+    <script src="https://cdn.tailwindcss.com"></script>
+    <!-- FontAwesome CDN -->
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <!-- Google Fonts -->
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800;900&display=swap" rel="stylesheet">
+    <!-- SheetJS for Excel Export -->
+    <script src="https://cdn.jsdelivr.net/npm/xlsx@0.18.5/dist/xlsx.full.min.js"></script>
+    <!-- GSAP Animation -->
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/gsap/3.12.2/gsap.min.js"></script>
+
+    <style>
+        body {
+            font-family: 'Inter', sans-serif;
+            background-color: #f8fafc;
+            color: #0f172a;
+            overflow-x: hidden;
+        }
+
+        /* Glassmorphism & High Contrast Card Styling for Projector */
+        .projector-card {
+            background: #ffffff;
+            border: 1px solid #e2e8f0;
+            box-shadow: 0 10px 30px -10px rgba(220, 38, 38, 0.08), 0 4px 6px -2px rgba(0, 0, 0, 0.05);
+        }
+
+        .slide-content {
+            will-change: transform, opacity;
+        }
+
+        /* Custom Scrollbar */
+        ::-webkit-scrollbar {
+            width: 8px;
+            height: 8px;
+        }
+        ::-webkit-scrollbar-track {
+            background: #f1f5f9;
+        }
+        ::-webkit-scrollbar-thumb {
+            background: #cbd5e1;
+            border-radius: 4px;
+        }
+        ::-webkit-scrollbar-thumb:hover {
+            background: #94a3b8;
+        }
+
+        /* Active Tag Indicator */
+        .tag-pill {
+            transition: all 0.2s ease;
+        }
+        .tag-pill:hover {
+            transform: translateY(-2px);
+        }
+
+        .glow-red {
+            box-shadow: 0 0 20px rgba(220, 38, 38, 0.25);
+        }
+
+        /* Toast notification animation */
+        #toastNotice {
+            transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+        }
+    </style>
+</head>
+<body class="h-screen flex flex-col justify-between overflow-hidden">
+
+<!-- TOAST NOTIFICATION -->
+<div id="toastNotice" class="fixed top-20 right-6 bg-emerald-600 text-white px-5 py-3 rounded-2xl shadow-2xl flex items-center gap-3 z-50 transform translate-y-[-100px] opacity-0 pointer-events-none">
+    <i class="fa-solid fa-circle-check text-xl"></i>
+    <div>
+        <p id="toastTitle" class="font-extrabold text-xs">Berhasil Disimpan!</p>
+        <p id="toastMsg" class="text-[11px] text-emerald-100">Data hasil follow up departemen telah terupdate.</p>
+    </div>
+</div>
+
+<!-- TOP NAVIGATION BAR -->
+<header class="h-16 bg-white border-b border-slate-200 px-6 flex items-center justify-between z-30 shadow-sm shrink-0">
+    <div class="flex items-center space-x-4">
+        <div class="bg-red-600 text-white p-2.5 rounded-xl font-black text-lg tracking-wider flex items-center gap-2 shadow-md">
+            <i class="fa-solid font-bold fa-layer-group"></i>
+            <span>MNO</span>
+        </div>
+        <div>
+            <h1 class="text-lg font-bold text-slate-900 leading-tight">SHARING BERSAMA MNO</h1>
+            <p class="text-xs font-semibold text-red-600 tracking-wide uppercase">Konsolidasi Strategis & Benang Merah Lintas Departemen</p>
+        </div>
+    </div>
+
+    <!-- Mode Toggle & Quick Controls -->
+    <div class="flex items-center space-x-3">
+        <div class="bg-slate-100 p-1 rounded-xl flex items-center space-x-1 border border-slate-200">
+            <button id="viewDeckBtn" onclick="switchView('deck')" class="px-3 py-1.5 rounded-lg text-xs font-bold transition flex items-center gap-1.5 bg-red-600 text-white shadow">
+                <i class="fa-solid fa-desktop"></i>
+                <span>Mode Presentasi</span>
+            </button>
+            <button id="viewMatrixBtn" onclick="switchView('matrix')" class="px-3 py-1.5 rounded-lg text-xs font-bold text-slate-600 hover:text-slate-900 hover:bg-slate-200 transition flex items-center gap-1.5">
+                <i class="fa-solid fa-diagram-project"></i>
+                <span>Matriks Benang Merah</span>
+            </button>
+            <button id="viewDeptBtn" onclick="switchView('dept')" class="px-3 py-1.5 rounded-lg text-xs font-bold text-slate-600 hover:text-slate-900 hover:bg-slate-200 transition flex items-center gap-1.5">
+                <i class="fa-solid fa-building-user"></i>
+                <span>Per Departemen & Follow Up</span>
+            </button>
+        </div>
+
+        <!-- EXPORT TO EXCEL BUTTON -->
+        <button onclick="exportToExcel()" class="px-3.5 py-2 bg-emerald-600 hover:bg-emerald-700 text-white rounded-xl text-xs font-extrabold transition flex items-center gap-2 shadow-md shadow-emerald-600/20" title="Download Excel Semua Departemen (1 Sheet 1 Dept)">
+            <i class="fa-solid fa-file-excel text-sm"></i>
+            <span class="hidden md:inline">Export Excel (All Dept)</span>
+        </button>
+
+        <button onclick="toggleOverviewModal()" class="p-2 text-slate-600 hover:text-red-600 hover:bg-red-50 rounded-lg transition border border-slate-200" title="Daftar Slide">
+            <i class="fa-solid fa-grid-2 text-lg"></i>
+        </button>
+        <button onclick="toggleFullscreen()" class="p-2 text-slate-600 hover:text-red-600 hover:bg-red-50 rounded-lg transition border border-slate-200" title="Layar Penuh">
+            <i class="fa-solid fa-expand text-lg" id="fullscreenIcon"></i>
+        </button>
+    </div>
+</header>
+
+<!-- MAIN PRESENTATION AREA -->
+<main class="flex-1 relative overflow-hidden flex flex-col">
+
+    <!-- DECK VIEW SLIDES CONTAINER -->
+    <div id="deckView" class="flex-1 relative flex items-center justify-center p-4 md:p-8">
+        
+        <!-- Slide Container -->
+        <div id="slideCard" class="w-full max-w-6xl h-full max-h-[85vh] projector-card rounded-3xl p-6 md:p-10 flex flex-col justify-between relative overflow-hidden border-2 border-slate-200">
+            
+            <!-- Background Accent Glow -->
+            <div class="absolute -top-24 -right-24 w-96 h-96 bg-red-500/10 rounded-full blur-3xl pointer-events-none"></div>
+            <div class="absolute -bottom-24 -left-24 w-96 h-96 bg-red-600/5 rounded-full blur-3xl pointer-events-none"></div>
+
+            <!-- Slide Header / Category Tag -->
+            <div id="slideHeader" class="flex items-center justify-between z-10 shrink-0 pb-4 border-b border-slate-100">
+                <div class="flex items-center gap-3">
+                    <span id="slideCategoryBadge" class="bg-red-100 text-red-700 text-xs font-black uppercase px-3 py-1 rounded-full border border-red-200 flex items-center gap-2">
+                        <i id="slideCategoryIcon" class="fa-solid fa-bullseye"></i>
+                        <span id="slideCategoryText">KATEGORI</span>
+                    </span>
+                    <span id="slideSubtitle" class="text-xs font-semibold text-slate-500">DEPT TERLIBAT: <strong id="slideDepts" class="text-slate-800">ALL DEPT</strong></span>
+                </div>
+                <div class="text-xs font-extrabold text-slate-400 tracking-wider">
+                    SLIDE <span id="currentSlideNum" class="text-red-600 font-black text-sm">01</span> / <span id="totalSlideNum">12</span>
+                </div>
+            </div>
+
+            <!-- Dynamic Slide Main Body -->
+            <div id="slideBody" class="flex-1 my-6 overflow-y-auto pr-2 z-10 slide-content">
+                <!-- Dynamic Slide Content Inserted Here by JS -->
+            </div>
+
+            <!-- Slide Footer & Speaker Notes Banner -->
+            <div id="slideFooter" class="z-10 pt-4 border-t border-slate-100 flex items-center justify-between shrink-0">
+                <div id="speakerNote" class="flex items-center gap-3 text-xs text-slate-600 bg-slate-50 px-4 py-2.5 rounded-xl border border-slate-200 max-w-2xl">
+                    <i class="fa-solid fa-lightbulb text-amber-500 text-sm"></i>
+                    <span id="speakerNoteText">Catatan Diskusi: Gunakan poin ini sebagai landasan penyelarasan antar departemen.</span>
+                </div>
+
+                <!-- Slide Navigation Buttons -->
+                <div class="flex items-center space-x-3">
+                    <button onclick="prevSlide()" class="px-4 py-2 bg-slate-100 hover:bg-slate-200 text-slate-700 font-bold text-xs rounded-xl transition flex items-center gap-2 border border-slate-300">
+                        <i class="fa-solid fa-arrow-left"></i>
+                        <span>Sebelumnya</span>
+                    </button>
+                    <button onclick="nextSlide()" class="px-5 py-2 bg-red-600 hover:bg-red-700 text-white font-bold text-xs rounded-xl transition flex items-center gap-2 shadow-md shadow-red-500/20">
+                        <span>Berikutnya</span>
+                        <i class="fa-solid fa-arrow-right"></i>
+                    </button>
+                </div>
+            </div>
+
+        </div>
+    </div>
+
+    <!-- MATRIX EXPLORER VIEW (BENANG MERAH ALL ISSUES) -->
+    <div id="matrixView" class="hidden flex-1 overflow-y-auto p-6 md:p-8 bg-slate-100">
+        <div class="max-w-7xl mx-auto space-y-6">
+            
+            <!-- Matrix Filter Header -->
+            <div class="bg-white p-6 rounded-2xl shadow-sm border border-slate-200 flex flex-col md:flex-row items-center justify-between gap-4">
+                <div>
+                    <h2 class="text-xl font-black text-slate-900 flex items-center gap-2">
+                        <i class="fa-solid fa-diagram-project text-red-600"></i>
+                        <span>Pusat Benang Merah & Sinergi Lintas Departemen</span>
+                    </h2>
+                    <p class="text-xs text-slate-500 mt-1">Pemetaan seluruh isu berdasarkan target perbaikan serta departemen penanggung jawab.</p>
+                </div>
+
+                <!-- Filter Controls -->
+                <div class="flex flex-wrap items-center gap-2 w-full md:w-auto">
+                    <div class="relative flex-1 md:flex-none">
+                        <i class="fa-solid fa-magnifying-glass absolute left-3 top-2.5 text-xs text-slate-400"></i>
+                        <input type="text" id="matrixSearch" oninput="filterMatrix()" placeholder="Cari topik / isu / kode..." class="pl-9 pr-4 py-2 bg-slate-50 border border-slate-200 rounded-xl text-xs w-full md:w-64 focus:outline-none focus:border-red-500">
+                    </div>
+                    <select id="matrixTargetFilter" onchange="filterMatrix()" class="px-3 py-2 bg-slate-50 border border-slate-200 rounded-xl text-xs font-semibold text-slate-700 focus:outline-none focus:border-red-500">
+                        <option value="ALL">Semua Target Perbaikan</option>
+                        <option value="NSB">Perbaikan NSB</option>
+                        <option value="TO">Perbaikan Turn Over (TO) & MPP</option>
+                        <option value="CASHFLOW">Bisnis Proses Cashflow</option>
+                        <option value="OOS">Perbaikan OOS & Service Level Supplier</option>
+                        <option value="ASET">Bisnis Proses Aset & Maintenance</option>
+                        <option value="GO">Bisnis Proses Grand Opening</option>
+                        <option value="NATARU">Persiapan Festive Nataru</option>
+                        <option value="WELFARE">Kenyamanan & Welfare Karyawan</option>
+                    </select>
+                </div>
+            </div>
+
+            <!-- Matrix Cards Grid -->
+            <div id="matrixGrid" class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+                <!-- Dynamic Matrix Cards Rendered via JS -->
+            </div>
+
+        </div>
+    </div>
+
+    <!-- DEPARTMENTAL DEEP DIVE & FOLLOW-UP ACTION VIEW -->
+    <div id="deptView" class="hidden flex-1 overflow-y-auto p-6 md:p-8 bg-slate-100">
+        <div class="max-w-7xl mx-auto space-y-6">
+            
+            <!-- Department Tabs Navigation -->
+            <div class="bg-white p-3 rounded-2xl shadow-sm border border-slate-200 flex items-center gap-2 overflow-x-auto" id="deptTabsContainer">
+                <!-- Dynamic Dept Tabs Rendered Here -->
+            </div>
+
+            <!-- Active Department Summary & Interactive Input Form List -->
+            <div id="deptContentArea" class="space-y-4">
+                <!-- Dynamic Dept Follow-up Input Cards Rendered Here -->
+            </div>
+
+        </div>
+    </div>
+
+</main>
+
+<!-- BOTTOM PROGRESS & QUICK SLIDE NAV -->
+<footer class="h-10 bg-white border-t border-slate-200 px-6 flex items-center justify-between text-xs z-30 shrink-0">
+    <div class="flex items-center space-x-2 w-full max-w-xs">
+        <span class="text-slate-400 font-bold">Progres:</span>
+        <div class="flex-1 bg-slate-100 h-2 rounded-full overflow-hidden border border-slate-200">
+            <div id="progressBar" class="bg-red-600 h-full w-0 transition-all duration-300"></div>
+        </div>
+        <span id="progressPercent" class="font-extrabold text-red-600">8%</span>
+    </div>
+
+    <div class="hidden md:flex items-center space-x-6 text-slate-500 font-semibold">
+        <span><i class="fa-regular fa-keyboard text-slate-400 mr-1"></i> Gunakan Tombol <kbd class="px-1.5 py-0.5 bg-slate-100 border rounded font-mono text-[10px]">←</kbd> <kbd class="px-1.5 py-0.5 bg-slate-100 border rounded font-mono text-[10px]">→</kbd> atau <kbd class="px-1.5 py-0.5 bg-slate-100 border rounded font-mono text-[10px]">Space</kbd></span>
+        <span><i class="fa-solid fa-circle text-[8px] text-red-500 mr-1"></i> Mode Presentasi Siap Proyektor</span>
+    </div>
+</footer>
+
+<!-- OVERVIEW / SLIDE THUMBNAIL MODAL -->
+<div id="overviewModal" class="fixed inset-0 bg-slate-900/60 backdrop-blur-sm z-50 hidden flex items-center justify-center p-6">
+    <div class="bg-white rounded-3xl w-full max-w-5xl h-[80vh] flex flex-col p-6 shadow-2xl border border-slate-200">
+        <div class="flex items-center justify-between pb-4 border-b border-slate-200">
+            <h3 class="text-lg font-black text-slate-900 flex items-center gap-2">
+                <i class="fa-solid fa-grid text-red-600"></i>
+                <span>Daftar Seluruh Slide Presentation</span>
+            </h3>
+            <button onclick="toggleOverviewModal()" class="text-slate-400 hover:text-slate-700 p-2 rounded-xl">
+                <i class="fa-solid fa-xmark text-xl"></i>
+            </button>
+        </div>
+        <div id="overviewGrid" class="flex-1 overflow-y-auto my-4 grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-4 p-2">
+            <!-- Slide Thumbnails Inserted JS -->
+        </div>
+    </div>
+</div>
+
+<script>
+    /*
+     * MASTER DATASET: Parse all meeting notes into structured objects.
+     * Categorized into Benang Merah objectives & department tags.
+     * PROPDEV split into: LOC (Location), BLD (Building), MTC (Maintenance)
+     */
+    const rawMeetingData = [
+        // DEPT OPR
+        { id: "OPR-1", dept: "OPR", goal: "NSB", targetGroup: "Perbaikan NSB", text: "Space Gudang Untuk Toko dengan Gudang yang ada di lantai 2 dengan SPD >30jt di review akan menggunakan lift barang untuk mudah mengelola barang (BLD & MTC) untuk perbaikan NSB", involved: ["OPR", "BLD", "MTC"] },
+        { id: "OPR-2", dept: "OPR", goal: "TO", targetGroup: "Perbaikan Turn Over", text: "Alur Kerja operasional yang harus diperbaiki yang bercermin dari TO di cabang manado yang paling tinggi secara nasional (OPR) untuk perbaikan TO", involved: ["OPR"] },
+        { id: "OPR-3", dept: "OPR", goal: "TO", targetGroup: "Perbaikan Turn Over", text: "AM PIC MPP harus memiliki prioritas untuk pemenuhan MPP bukan secara merata, tapi ada prioritas yang harus dipenuhi terlebih dahulu (prioritas dari sales tertinggi), (PD) untuk perbaikan pemenuhan MPP", involved: ["PD", "OPR"] },
+        { id: "OPR-4", dept: "OPR", goal: "NSB", targetGroup: "Perbaikan NSB", text: "NSB harus dibedah, dari alur barang datang sampai dengan terjual kepada konsumen, MPB tidak boleh lepas dan juga korwil saat selesai SO ic lakukan sidak ke toko. (WH) untuk perbaikan NSB", involved: ["WH", "OPR", "IC"] },
+        { id: "OPR-5", dept: "OPR", goal: "NSB", targetGroup: "Perbaikan NSB", text: "Kabel ties atas susu bayi dan rokok berikan warna berbeda untuk lakukan pengecekan tanpa diketahui driver (tbc warehouse) (WH) untuk perbaikan NSB", involved: ["WH", "OPR"] },
+        { id: "OPR-6", dept: "OPR", goal: "NSB", targetGroup: "Perbaikan NSB", text: "CCTV standardnya 2 untuk memudahkan pengawasan untuk NSB (GS & IT) untuk perbaikan NSB", involved: ["GS", "IT", "OPR"] },
+        { id: "OPR-7", dept: "OPR", goal: "NSB", targetGroup: "Perbaikan NSB", text: "BAP kurang koli toko dari kiriman warehouse dibuat template nya dan diletakkan di desktop (OPR) untuk perbaikan NSB", involved: ["OPR", "WH"] },
+        { id: "OPR-8", dept: "OPR", goal: "NSB", targetGroup: "Perbaikan NSB", text: "Compare antara toko yang NSB besar dengan kiriman B-Log type mobilnya (bak terbuka atau tertutup) untuk analisa fraud dari driver b-log (WH & SQ) untuk perbaikan NSB", involved: ["WH", "SQ", "OPR"] },
+        { id: "OPR-9", dept: "OPR", goal: "NSB", targetGroup: "Perbaikan NSB", text: "Pemasangan cctv untuk NSB yang tinggi sesuai standar dan budget (GS & IT) untuk perbaikan NSB", involved: ["GS", "IT", "OPR"] },
+        { id: "OPR-10", dept: "OPR", goal: "TO", targetGroup: "Perbaikan Turn Over", text: "Jam transaksi diliat untuk review toko 24 jam yang akan dibandingkan dengan kiriman WH karena MPP yang terbatas di shift malem (PD, WH, SQ) untuk perbaikan TO", involved: ["PD", "WH", "SQ", "OPR"] },
+        { id: "OPR-11", dept: "OPR", goal: "TO", targetGroup: "Perbaikan Turn Over", text: "MPP untuk level pejabat minimal MD untuk melihat shift berapa dan berapa orang untuk melihat efektivitas Master Shift dan agar setiap shift merata agar memiliki pejabat di setiap shift nya (PD) untuk perbaikan TO", involved: ["PD", "OPR"] },
+        { id: "OPR-12", dept: "OPR", goal: "NSB", targetGroup: "Perbaikan NSB", text: "Monitoring antara data clerek kasir dengan NSB toko, untuk melihat potensi fraud dari sisi transaksi kasirnya (IT, OPR, NSB & SQ) untuk perbaikan NSB", involved: ["IT", "OPR", "SQ"] },
+        { id: "OPR-13", dept: "OPR", goal: "NSB", targetGroup: "Perbaikan NSB", text: "Review Jadwal SO Grand untuk melihat pola IC dalam membuat jadwal SO Fresh (SQ & IC) untuk perbaikan NSB", involved: ["SQ", "IC", "OPR"] },
+        { id: "OPR-14", dept: "OPR", goal: "NSB", targetGroup: "Perbaikan NSB", text: "Pemenuhan dan Knowledge MPP khususnya personil yang DP belum berkompeten dalam mengelola stock dan toko (PD) untuk perbaikan NSB", involved: ["PD", "OPR"] },
+        { id: "OPR-15", dept: "OPR", goal: "TO", targetGroup: "Perbaikan Turn Over", text: "Pastikan ada validasi untuk program crew to MD dari operation (PD & OPR) untuk perbaikan knowledge MPP", involved: ["PD", "OPR"] },
+
+        // DEPT PD
+        { id: "PD-2", dept: "PD", goal: "TO", targetGroup: "Perbaikan Turn Over", text: "Alur Turn Over MPP WH, kurang ada perhatian untuk tim WH seperti mengadakan acara engagement di WH seperti ILM yang dilaksanakan di WH (PD) untuk perbaikan turn over", involved: ["PD", "WH"] },
+        { id: "PD-3", dept: "PD", goal: "TO", targetGroup: "Perbaikan Turn Over", text: "Issue lembur WH sangat tinggi -> Tanggal 1, 3, 4, 9, 10, 11, 12 (WH & PD) dan jumlah toko picking nya karena kurang kontainer untuk perbaikan overtime", involved: ["WH", "PD"] },
+        { id: "PD-4", dept: "PD", goal: "TO", targetGroup: "Perbaikan Turn Over", text: "SOP untuk lembur harus di duduk perkarakan untuk kejelasan lemburnya agar tidak selalu lembur (SOP, PD & WH) untuk perbaikan overtime", involved: ["SOP", "PD", "WH"] },
+        { id: "PD-5", dept: "PD", goal: "TO", targetGroup: "Perbaikan Turn Over", text: "Untuk Turn Over gender male di compare dengan jam operational toko (24 jam) dan masalah shifting karena kebagian shift malam terus sehingga membuat mereka resign, di cek shift malam langsung shift siang (OPR & PD) untuk perbaikan turn over", involved: ["OPR", "PD"] },
+        { id: "PD-6", dept: "PD", goal: "TO", targetGroup: "Perbaikan Turn Over", text: "Issue jam kerja dari user tim Operation untuk ditinjau ulang kembali dan di compare dengan toko - toko dengan turnover tinggi di cek dengan OTP clerek kasir (PD & OPR) untuk perbaikan turnover", involved: ["PD", "OPR"] },
+        { id: "PD-7", dept: "PD", goal: "TO", targetGroup: "Perbaikan Turn Over", text: "Role play untuk successor kasir agar memiliki motivasi untuk terus naik jabatan (PD & OPR) untuk pemenuhan MPP", involved: ["PD", "OPR"] },
+        { id: "PD-8", dept: "PD", goal: "TO", targetGroup: "Perbaikan Turn Over", text: "Mapping daerah & wilayah penyangga untuk issue turnover dari flag masalah penempatan personil toko (PD & OPR) untuk perbaikan turnover", involved: ["PD", "OPR"] },
+        { id: "PD-9", dept: "PD", goal: "WELFARE", targetGroup: "Kenyamanan & Welfare Karyawan", text: "Cowok juga harapannya dapat kosan khususnya di area Halmahera agar disamakan juga dengan gender perempuan (PD & OPR) untuk perbaikan turn over", involved: ["PD", "OPR"] },
+        { id: "PD-10", dept: "PD", goal: "TO", targetGroup: "Perbaikan Turn Over", text: "Percepatan untuk level ACOS/COS dibuat 1 kelas untuk pemenuhan dan knowledge nya masing - masing (PD & OPR) untuk pemenuhan MPP", involved: ["PD", "OPR"] },
+        { id: "PD-11", dept: "PD", goal: "WELFARE", targetGroup: "Kenyamanan & Welfare Karyawan", text: "Untuk penempatan antar wilayah, bisa claim BPDL dan transport serta jatah cuti 1x yang di claim akomodasinya (PD & OPR) untuk pemenuhan MPP", involved: ["PD", "OPR"] },
+        { id: "PD-12", dept: "PD", goal: "TO", targetGroup: "Perbaikan Turn Over", text: "Evaluasi untuk operation saat personil toko dengan usia 1 - 2 hari kerja sudah langsung dimutasi ke toko lain -> issue untuk OPR (PD & OPR) untuk perbaikan turnover", involved: ["PD", "OPR"] },
+        { id: "PD-13", dept: "PD", goal: "TO", targetGroup: "Perbaikan Turn Over", text: "Nomor BM & social media BM sebar saat TAS untuk sharing (PD & OPR) untuk perbaikan turnover", involved: ["PD", "OPR"] },
+        { id: "PD-14", dept: "PD", goal: "TO", targetGroup: "Perbaikan Turn Over", text: "Tekan TO untuk usia kerja dibawah 1 bulan, yang nantinya akan ter sorting dari trainer mana dan wilayah mana dengan turnover yang tinggi (PD) untuk perbaikan turnover", involved: ["PD"] },
+        { id: "PD-15", dept: "PD", goal: "TO", targetGroup: "Perbaikan Turn Over", text: "Coach WH fokus dan mengetahui issue di level picker & helper agar bisa preventif menghindari turnover (PD & WH) confirm ke WH untuk kontainer untuk perbaikan turnover", involved: ["PD", "WH"] },
+
+        // DEPT GS
+        { id: "GS-1", dept: "GS", goal: "ASET", targetGroup: "Bisnis Proses Aset & MTC", text: "Pembebanan dan tagihan atas percetakan karena tidak ada email pemesanan (GS, TAFIS & ALL DEPT) untuk perbaikan bisnis proses aset", involved: ["GS", "TAFIS"] },
+        { id: "GS-2", dept: "GS", goal: "ASET", targetGroup: "Bisnis Proses Aset & MTC", text: "Perbaikan dengan mengutamakan kecepatan seperti CCTV sehingga administrasi bermasalah dan berakibat kepada kekecewaan vendor seperti CCTV karena belum ada pembayaran (GS & TAFIS) untuk perbaikan bisnis proses aset", involved: ["GS", "TAFIS"] },
+        { id: "GS-3", dept: "GS", goal: "ASET", targetGroup: "Bisnis Proses Aset & MTC", text: "Item buffer untuk operation untuk didata kembali, untuk percepatan penyelesaian masalah dan AHO di toko (GS & OPR) untuk perbaikan bisnis proses aset", involved: ["GS", "OPR"] },
+        { id: "GS-4", dept: "GS", goal: "ASET", targetGroup: "Bisnis Proses Aset & MTC", text: "Penyelesaian untuk CCTV agar SPK nya dibuat di toko yang berdekatan dan ada buffer spare part dari vendor ketika melakukan perbaikan CCTV (GS) untuk perbaikan bisnis proses aset", involved: ["GS"] },
+        { id: "GS-5", dept: "GS", goal: "ASET", targetGroup: "Bisnis Proses Aset & MTC", text: "Undang vendor untuk training perbaikan & menjaga kebersihan mesin kopi JA-DI (GS & BFDS) untuk perbaikan bisnis proses aset", involved: ["GS", "BFDS"] },
+        { id: "GS-6", dept: "GS", goal: "ASET", targetGroup: "Bisnis Proses Aset & MTC", text: "Plan GO JADI harus tepat untuk optimalkan PB Aset nya (tarikan 2 bulan mengikuti Lead Time Unuse Asset) (GS & BFDS) untuk perbaikan bisnis proses aset", involved: ["GS", "BFDS"] },
+        { id: "GS-7", dept: "GS", goal: "ASET", targetGroup: "Bisnis Proses Aset & MTC", text: "Glass door untuk IN OUT asset dibuat skema untuk buffer untuk maksimalkan toko GO nya (GS) untuk perbaikan bisnis proses aset", involved: ["GS"] },
+        { id: "GS-8", dept: "GS", goal: "ASET", targetGroup: "Bisnis Proses Aset & MTC", text: "Pallet kayu di WH suggest untuk dimusnah (GS & WH) untuk perbaikan bisnis proses aset", involved: ["GS", "WH"] },
+        { id: "GS-9", dept: "GS", goal: "ASET", targetGroup: "Bisnis Proses Aset & MTC", text: "Komputer kasir untuk SPD kecil <15jt yang memiliki 3 komputer kasir agar dibuat menjadi 2, dan nanti 1 nya untuk menjadi buffer untuk toko existing (GS & IT) untuk perbaikan bisnis proses aset", involved: ["GS", "IT"] },
+        { id: "GS-10", dept: "GS", goal: "GO", targetGroup: "Bisnis Proses Grand Opening", text: "Toko baru, pole sign & shop sign nya menggunakan BLITZ (GS) untuk perbaikan bisnis proses aset", involved: ["GS"] },
+        { id: "GS-11", dept: "GS", goal: "GO", targetGroup: "Bisnis Proses Grand Opening", text: "Road sign untuk toko by request dan development untuk toko GO agar ada road sign minimal 2 untuk sebelah kanan dan sebelah kiri (GS) untuk perbaikan bisnis proses aset", involved: ["GS"] },
+        { id: "GS-12", dept: "GS", goal: "ASET", targetGroup: "Bisnis Proses Aset & MTC", text: "Sosialisasi untuk tim toko ketika mereka melakukan mutasi aset akan berpengaruh kepada SO aset Nasional (GS & OPR) untuk perbaikan bisnis proses aset", involved: ["GS", "OPR"] },
+
+        // DEPT TAFIS
+        { id: "TAFIS-1", dept: "TAFIS", goal: "CASHFLOW", targetGroup: "Bisnis Proses Cashflow", text: "Pembebanan HNBD harus selesai di closing tahun 2026 dan di simulasikan harus dapet sales berapa sampai dengan akhir tahun dengan pembebanan ke toko yang secara potensinya tidak dapat IKT (GS, OPR & TAFIS) untuk perbaikan bisnis proses cashflow", involved: ["GS", "OPR", "TAFIS"] },
+        { id: "TAFIS-2", dept: "TAFIS", goal: "NSB", targetGroup: "Perbaikan NSB", text: "Aturan main untuk LPT harus di launching di awal, dan dari tim TAFIS ada monitoring dan analisa terkait pola atas LPT yang terjadi di toko toko (TAFIS) untuk perbaikan NSB", involved: ["TAFIS"] },
+        { id: "TAFIS-3", dept: "TAFIS", goal: "NSB", targetGroup: "Perbaikan NSB", text: "Saat SO brankas, pejabat toko tidak boleh keluar masuk dan hitung bersama dengan IC (TAFIS) untuk perbaikan NSB", involved: ["TAFIS", "IC"] },
+        { id: "TAFIS-4", dept: "TAFIS", goal: "NSB", targetGroup: "Perbaikan NSB", text: "Ada aplikasi bantu untuk monitoring clerek kasir antara clerek POS dan clerek SIS nya agar tidak ada yang di pending (TAFIS & IT) untuk perbaikan NSB", involved: ["TAFIS", "IT"] },
+        { id: "TAFIS-5", dept: "TAFIS", goal: "CASHFLOW", targetGroup: "Bisnis Proses Cashflow", text: "Penggunaan ECR untuk transaksi non tunai (TAFIS, IT, PD) untuk perbaikan bisnis proses cashflow", involved: ["TAFIS", "IT", "PD"] },
+        { id: "TAFIS-6", dept: "TAFIS", goal: "CASHFLOW", targetGroup: "Bisnis Proses Cashflow", text: "Gaungkan dan woro woro terkait penggunaan QRIS untuk LPT non tunai (TAFIS, OPR) untuk perbaikan bisnis proses cashflow", involved: ["TAFIS", "OPR"] },
+        { id: "TAFIS-7", dept: "TAFIS", goal: "CASHFLOW", targetGroup: "Bisnis Proses Cashflow", text: "Evaluasi toko - toko Halut & Lelilef Group untuk uang cash dan wilayah yang tidak main QRIS (TAFIS - OPR) untuk perbaikan bisnis proses cashflow", involved: ["TAFIS", "OPR"] },
+        { id: "TAFIS-8", dept: "TAFIS", goal: "NATARU", targetGroup: "Persiapan Festive Nataru", text: "Saat Festive Nataru untuk wilayah dengan growth tinggi disiapkan uang tunai untuk transaksi kasir (TAFIS & OPR) untuk perbaikan bisnis proses cashflow", involved: ["TAFIS", "OPR"] },
+        { id: "TAFIS-9", dept: "TAFIS", goal: "CASHFLOW", targetGroup: "Bisnis Proses Cashflow", text: "RRAK harus penekanan kepada realisasi bukan claim, sampling area Pak Yusep (TAFIS & OPR) untuk perbaikan bisnis proses cashflow", involved: ["TAFIS", "OPR"] },
+        { id: "TAFIS-10", dept: "TAFIS", goal: "CASHFLOW", targetGroup: "Bisnis Proses Cashflow", text: "RRAK untuk air mineral Cleo toko toko JA-DI harus ada estimasi yang tepat (TAFIS & OPR) untuk perbaikan bisnis proses cashflow", involved: ["TAFIS", "OPR"] },
+        { id: "TAFIS-11", dept: "TAFIS", goal: "TO", targetGroup: "Perbaikan Turn Over", text: "Melihat ratio gender di cabang Manado lebih tinggi untuk gender perempuan, suggest ke HC untuk IC mengambil gender perempuan (TAFIS & PD) untuk perbaikan pemenuhan MPP", involved: ["TAFIS", "PD"] },
+        { id: "TAFIS-12", dept: "TAFIS", goal: "CASHFLOW", targetGroup: "Bisnis Proses Cashflow", text: "Confirm ke CORCOM untuk uji kelayakan LLAJ terkait claim pembayaran terkait izin akses pejalan kaki dan berkoordinasi dengan LTA karena sudah bayar 300jt (CORCOM) untuk perbaikan bisnis proses cashflow", involved: ["CORCOM", "TAFIS"] },
+        { id: "TAFIS-13", dept: "TAFIS", goal: "NSB", targetGroup: "Perbaikan NSB", text: "Confirm untuk SADAR di area Malut terkait display di backwall kasir bukan di rak nya (TAFIS & OPR) untuk perbaikan NSB", involved: ["TAFIS", "OPR"] },
+
+        // DEPT IT
+        { id: "IT-2", dept: "IT", goal: "ASET", targetGroup: "Bisnis Proses Aset & MTC", text: "Kasir utama tidak ada yang di dekat pintu compare dengan data transaksi per komputer kasir (IT & OPR) untuk perbaikan bisnis proses aset", involved: ["IT", "OPR"] },
+        { id: "IT-3", dept: "IT", goal: "ASET", targetGroup: "Bisnis Proses Aset & MTC", text: "Evaluasi data jam operasional 24 jam dan bandingkan dengan data admin OPR untuk melihat actual jam operasional toko (IT & OPR) untuk perbaikan bisnis proses aset", involved: ["IT", "OPR"] },
+        { id: "IT-4", dept: "IT", goal: "ASET", targetGroup: "Bisnis Proses Aset & MTC", text: "Pop up di komputer kasir untuk tim toko tidak ada yang mencoba coba untuk transaksi Grab karena sudah berpindah ke transaksi E-Trans (IT & OPR) untuk perbaikan koneksi", involved: ["IT", "OPR"] },
+        { id: "IT-5", dept: "IT", goal: "ASET", targetGroup: "Bisnis Proses Aset & MTC", text: "Inputan untuk AHO office awareness nya masih rendah (SQ & IT) untuk perbaikan bisnis proses setiap departement", involved: ["SQ", "IT"] },
+        { id: "IT-6", dept: "IT", goal: "ASET", targetGroup: "Bisnis Proses Aset & MTC", text: "Hardisk buffer ambil dari hardware toko dibawah 15 juta untuk menjadi buffer dari komputer kasir (IT & GS) untuk perbaikan bisnis proses aset", involved: ["IT", "GS"] },
+        { id: "IT-7", dept: "IT", goal: "ASET", targetGroup: "Bisnis Proses Aset & MTC", text: "Aset PDT ada evaluasi berdasarkan SPD tokonya (IT & GS) untuk perbaikan bisnis proses aset", involved: ["IT", "GS"] },
+        { id: "IT-8", dept: "IT", goal: "ASET", targetGroup: "Bisnis Proses Aset & MTC", text: "Berkoordinasi dengan OPR untuk checklist untuk UPS server di masing masing toko (IT & OPR) untuk perbaikan bisnis proses aset", involved: ["IT", "OPR"] },
+        { id: "IT-9", dept: "IT", goal: "TO", targetGroup: "Perbaikan Turn Over", text: "Jika ada aplikasi baru, tim trainer harus update saat di TAS untuk pengoperasiannya di toko (IT & PD) untuk perbaikan koneksi", involved: ["IT", "PD"] },
+        { id: "IT-10", dept: "IT", goal: "ASET", targetGroup: "Bisnis Proses Aset & MTC", text: "Berkoordinasi dengan MTC & BLD untuk jalur kabel fiber optik (FO) jaringan toko (IT, BLD, MTC) untuk perbaikan koneksi", involved: ["IT", "BLD", "MTC"] },
+
+        // DEPT WH
+        { id: "WH-1", dept: "WH", goal: "OOS", targetGroup: "Perbaikan OOS & Service Level", text: "Perubahan kiriman container untuk Fresh Food (WH) untuk perbaikan oos", involved: ["WH"] },
+        { id: "WH-2", dept: "WH", goal: "OOS", targetGroup: "Perbaikan OOS & Service Level", text: "Item depo evaluasi PLU IN OUT dengan mempertimbangkan principle (WH & MD) untuk perbaikan oos", involved: ["WH", "MD"] },
+        { id: "WH-3", dept: "WH", goal: "WELFARE", targetGroup: "Kenyamanan & Welfare Karyawan", text: "Ruang istirahat untuk tim Warehouse yang layak, PB untuk item dan fasilitas untuk istirahat tim WH (WH & GS) untuk kenyamanan karyawan", involved: ["WH", "GS"] },
+        { id: "WH-4", dept: "WH", goal: "NSB", targetGroup: "Perbaikan NSB", text: "Musnah WH melihat dari inventory BS untuk dihubungkan dan dicari benangnya dari PKM toko-nya atau estimasi promo (WH, SQ) untuk perbaikan musnah warehouse", involved: ["WH", "SQ"] },
+        { id: "WH-5", dept: "WH", goal: "OOS", targetGroup: "Perbaikan OOS & Service Level", text: "Monitoring selesainya untuk TAG 3 WH (WH) untuk perbaikan oos", involved: ["WH"] },
+        { id: "WH-6", dept: "WH", goal: "NSB", targetGroup: "Perbaikan NSB", text: "Tim Bad Stock harus melaksanakan bisnis proses sesuai dengan SOP nya, tidak boleh ada fleksibilitas untuk menjaga inventory WH (WH) untuk perbaikan musnah warehouse", involved: ["WH"] },
+        { id: "WH-7", dept: "WH", goal: "NSB", targetGroup: "Perbaikan NSB", text: "Untuk validasi bazaar WH tidak harus memerlukan GIT sebagai syarat untuk validasi item bazaar di WH (WH & TAFIS) untuk perbaikan musnah warehouse", involved: ["WH", "TAFIS"] },
+        { id: "WH-8", dept: "WH", goal: "NSB", targetGroup: "Perbaikan NSB", text: "Setting customize cut off untuk GIT retur dari Maluku Utara (WH & TAFIS) untuk perbaikan musnah warehouse", involved: ["WH", "TAFIS"] },
+        { id: "WH-9", dept: "WH", goal: "NATARU", targetGroup: "Persiapan Festive Nataru", text: "Starting untuk perhitungan receiving untuk estimasi Nataru mulai dari tanggal 22 (WH) untuk persiapan festive nataru", involved: ["WH"] },
+        { id: "WH-10", dept: "WH", goal: "NATARU", targetGroup: "Persiapan Festive Nataru", text: "Berkoordinasi dengan supplier Pareto dan Non Pareto untuk estimasi Nataru nya (WH & MD) untuk persiapan nataru", involved: ["WH", "MD"] },
+        { id: "WH-11", dept: "WH", goal: "NSB", targetGroup: "Perbaikan NSB", text: "Project unchecking untuk Lelilef Group masih terkendala untuk PDT nya dan perlu ada IC untuk pendampingan unchecking (WH, TAFIS & GS) untuk perbaikan NSB", involved: ["WH", "TAFIS", "GS"] },
+        { id: "WH-12", dept: "WH", goal: "OOS", targetGroup: "Perbaikan OOS & Service Level", text: "Biaya untuk kiriman area Maluku Utara akan dikeluarkan delivery costnya tidak perlu terlalu efisiensi (TAFIS & WH) untuk perbaikan oos", involved: ["TAFIS", "WH"] },
+        { id: "WH-13", dept: "WH", goal: "NSB", targetGroup: "Perbaikan NSB", text: "Video kan untuk pengecekan rokok untuk tim toko di kontainer, untuk ada tanda bukti ada kiriman atau tidak dari B-Log (WH & OPR) untuk perbaikan NSB", involved: ["WH", "OPR"] },
+        { id: "WH-14", dept: "WH", goal: "OOS", targetGroup: "Perbaikan OOS & Service Level", text: "Suggest untuk item fresh untuk dibuatkan program bantu untuk memudahkan estimasi dengan beberapa koefisien (SQ, BM, WH) untuk perbaikan oos", involved: ["SQ", "BM", "WH"] },
+        { id: "WH-15", dept: "WH", goal: "OOS", targetGroup: "Perbaikan OOS & Service Level", text: "Lock minta supplier buah untuk bisa menyediakan 80% dari kebutuhan forecasting untuk pemenuhan buah sayur di toko (WH & MD) untuk perbaikan shrinkage", involved: ["WH", "MD"] },
+        { id: "WH-16", dept: "WH", goal: "WELFARE", targetGroup: "Kenyamanan & Welfare Karyawan", text: "Safety Shoes untuk keperluan tim WH (WH & PD) untuk kenyamanan karyawan", involved: ["WH", "PD"] },
+        { id: "WH-17", dept: "WH", goal: "NATARU", targetGroup: "Persiapan Festive Nataru", text: "Mapping untuk penempatan PHL untuk Festive Nataru (PD & WH) untuk persiapan nataru", involved: ["PD", "WH"] },
+        { id: "WH-18", dept: "WH", goal: "OOS", targetGroup: "Perbaikan OOS & Service Level", text: "Armada lebih prefer menggunakan TS dibanding TB untuk flow container yang lebih cepat dan lancar (WH) untuk perbaikan oos", involved: ["WH"] },
+        { id: "WH-19", dept: "WH", goal: "WELFARE", targetGroup: "Kenyamanan & Welfare Karyawan", text: "COI Senam, sebulan sekali (WH & PD) untuk kenyamanan karyawan", involved: ["WH", "PD"] },
+        { id: "WH-20", dept: "WH", goal: "NSB", targetGroup: "Perbaikan NSB", text: "Depo Ternate tidak boleh di hari Minggu, karena tidak bisa TOTI dan tidak boleh ada TO manual (WH & OPR) untuk perbaikan NSB", involved: ["WH", "OPR"] },
+
+        // DEPT MD
+        { id: "MD-1", dept: "MD", goal: "OOS", targetGroup: "Perbaikan OOS & Service Level", text: "Focus Dept Produk Growing Up Milk & Baby Diaper untuk toko-toko Super secara pricing nya (MD) untuk perbaikan pricing index", involved: ["MD"] },
+        { id: "MD-2", dept: "MD", goal: "OOS", targetGroup: "Perbaikan OOS & Service Level", text: "Mapping untuk pembayaran TTF supplier terkait cashflow supplier yang lambat sehingga tidak mau kirim barang khususnya Malut (MD & TAFIS) untuk perbaikan service level supplier", involved: ["MD", "TAFIS"] },
+        { id: "MD-3", dept: "MD", goal: "OOS", targetGroup: "Perbaikan OOS & Service Level", text: "Pengadaan mesin scan untuk Depo agar TTF supplier di Depo Ternate bisa lebih mudah agar tidak menggunakan HP lagi (MD & GS) untuk perbaikan service level supplier", involved: ["MD", "GS"] },
+        { id: "MD-4", dept: "MD", goal: "OOS", targetGroup: "Perbaikan OOS & Service Level", text: "Issue terkait UMKM untuk kiriman yang turun karena issue pembayaran yang cukup panjang dan terkesan ribet (MD & TAFIS) untuk perbaikan service level supplier", involved: ["MD", "TAFIS"] },
+        { id: "MD-5", dept: "MD", goal: "OOS", targetGroup: "Perbaikan OOS & Service Level", text: "Stempel kurang jelas yang diberikan tim toko kepada BKL (MD & OPR) -> Knowledge sharing dari MD ke tim toko & pengadaan stempel di toko untuk perbaikan service level BKL", involved: ["MD", "OPR"] },
+        { id: "MD-6", dept: "MD", goal: "OOS", targetGroup: "Perbaikan OOS & Service Level", text: "Issue terkait PO untuk Galon BKL Aqua (MD & OPR) -> Auto email On Hand BKL Galon setiap hari untuk service level supplier BKL", involved: ["MD", "OPR"] },
+        { id: "MD-7", dept: "MD", goal: "OOS", targetGroup: "Perbaikan OOS & Service Level", text: "Review PKM Galon & ditambahkan dengan jumlah Galon rusak (MD & SQ) untuk service level supplier", involved: ["MD", "SQ"] },
+        { id: "MD-8", dept: "MD", goal: "OOS", targetGroup: "Perbaikan OOS & Service Level", text: "Mapping PLU promo Indomaret (MD) untuk perbaikan pricing index", involved: ["MD"] },
+        { id: "MD-9", dept: "MD", goal: "OOS", targetGroup: "Perbaikan OOS & Service Level", text: "Mapping toko HTH dengan competitor radius 200m (MD, SQ & OPR) untuk perbaikan pricing index", involved: ["MD", "SQ", "OPR"] },
+        { id: "MD-10", dept: "MD", goal: "OOS", targetGroup: "Perbaikan OOS & Service Level", text: "Menaikkan semi-direct untuk principle/supplier yang secara SL supplier rendah dan masuk pareto sales item (MD) untuk perbaikan service level supplier", involved: ["MD"] },
+        { id: "MD-11", dept: "MD", goal: "OOS", targetGroup: "Perbaikan OOS & Service Level", text: "Monitoring Lead Time PO supplier (MD & WH) untuk perbaikan service level supplier", involved: ["MD", "WH"] },
+        { id: "MD-12", dept: "MD", goal: "NATARU", targetGroup: "Persiapan Festive Nataru", text: "Beras cuma ada SPHP, note area penyimpanan beras tidak boleh diletakkan menempel dengan lantai (MD & OPR) untuk persiapan nataru", involved: ["MD", "OPR"] },
+        { id: "MD-13", dept: "MD", goal: "NATARU", targetGroup: "Persiapan Festive Nataru", text: "Gula untuk selain KTM yang di cari MD matiin di Malut karena Malut sudah ada gula KTM (MD) untuk persiapan nataru", involved: ["MD"] },
+        { id: "MD-14", dept: "MD", goal: "NATARU", targetGroup: "Persiapan Festive Nataru", text: "Maluku Utara butuh gudang sewa atau tidak confirm ke WH & AM untuk timbun beras (MD, OPR & WH) untuk persiapan nataru", involved: ["MD", "OPR", "WH"] },
+
+        // DEPT LOCATION (LOC)
+        { id: "LOC-1", dept: "LOC", goal: "GO", targetGroup: "Bisnis Proses Grand Opening", text: "Sumber Rejo plan GO di 31 Desember 2026 untuk ikut bantu dongkrak SPD New Store (LOC, OPR & BLD) untuk perbaikan bisnis proses grand opening", involved: ["LOC", "OPR", "BLD"] },
+        { id: "LOC-2", dept: "LOC", goal: "GO", targetGroup: "Bisnis Proses Grand Opening", text: "Halteng target di 9 toko untuk 2027 (LOC) untuk perbaikan bisnis proses grand opening", involved: ["LOC"] },
+        { id: "LOC-3", dept: "LOC", goal: "WELFARE", targetGroup: "Kenyamanan & Welfare Karyawan", text: "Cari titik toko untuk mess office dan building bangun untuk mess office, dibuat 2 pintu keluar agar tim office tidak melewati dalem toko (LOC & BLD) untuk kenyamanan karyawan", involved: ["LOC", "BLD"] },
+
+        // DEPT BUILDING (BLD)
+        { id: "BLD-1", dept: "BLD", goal: "GO", targetGroup: "Bisnis Proses Grand Opening", text: "Jika jaraknya jauh dijangkau oleh Building, pengukuran dilakukan oleh tim Location (BLD & LOC) untuk perbaikan bisnis proses grand opening", involved: ["BLD", "LOC"] },
+        { id: "BLD-2", dept: "BLD", goal: "GO", targetGroup: "Bisnis Proses Grand Opening", text: "Gunakan technology untuk mengukur seperti Google Earth untuk hemat waktu dan biaya (BLD) untuk perbaikan bisnis proses grand opening", involved: ["BLD"] },
+        { id: "BLD-3", dept: "BLD", goal: "GO", targetGroup: "Bisnis Proses Grand Opening", text: "Toko GO 2027 harus disamakan dengan ST, ST tidak boleh ada mundur (BLD) untuk perbaikan bisnis proses grand opening", involved: ["BLD"] },
+        { id: "BLD-4", dept: "BLD", goal: "WELFARE", targetGroup: "Kenyamanan & Welfare Karyawan", text: "Toko dengan mess yang ikut penuh dengan barang didata mana toko yang ranjang susunnya masih ada (GS, BLD) untuk kenyamanan karyawan", involved: ["GS", "BLD"] },
+        { id: "BLD-5", dept: "BLD", goal: "WELFARE", targetGroup: "Kenyamanan & Welfare Karyawan", text: "Loker untuk bantal di mess office (GS, BLD) untuk kenyamanan karyawan", involved: ["GS", "BLD"] },
+        { id: "BLD-6", dept: "BLD", goal: "WELFARE", targetGroup: "Kenyamanan & Welfare Karyawan", text: "Building planning untuk titik jebolan coran untuk lift barang untuk preventif jika sales tinggi agar tim toko tidak kesulitan mendisplay barang (BLD & CAT) untuk kenyamanan karyawan", involved: ["BLD", "CAT"] },
+        { id: "BLD-7", dept: "BLD", goal: "GO", targetGroup: "Bisnis Proses Grand Opening", text: "Review time table untuk GO karena kendala listrik untuk pemasangan instalasi listrik H-3 GO dan BKL Fresh masuk minimal H-3 dan maksimal H-1 (BLD & MD) untuk perbaikan bisnis proses grand opening", involved: ["BLD", "MD"] },
+        { id: "BLD-8", dept: "BLD", goal: "ASET", targetGroup: "Bisnis Proses Aset & MTC", text: "Mulai toko GO 2027 di buatkan rak galon dan gas LPG, dibuat 1 toko 2 rak (BLD) untuk perbaikan perawatan", involved: ["BLD"] },
+
+        // DEPT MAINTENANCE (MTC)
+        { id: "MTC-1", dept: "MTC", goal: "ASET", targetGroup: "Bisnis Proses Aset & MTC", text: "MTC masuk saat meeting area Operation terkait cara operasional AC & Genset (MTC & OPR) untuk perbaikan perawatan", involved: ["MTC", "OPR"] },
+        { id: "MTC-2", dept: "MTC", goal: "ASET", targetGroup: "Bisnis Proses Aset & MTC", text: "Buffer stock untuk percepatan perbaikan & pergantian (MTC & GS) untuk perbaikan perawatan", involved: ["MTC", "GS"] },
+        { id: "MTC-3", dept: "MTC", goal: "ASET", targetGroup: "Bisnis Proses Aset & MTC", text: "Buatkan buffer roda pallet mover cukupkan dengan kebutuhan (MTC & GS) untuk perbaikan perawatan", involved: ["MTC", "GS"] },
+        { id: "MTC-4", dept: "MTC", goal: "ASET", targetGroup: "Bisnis Proses Aset & MTC", text: "Forklift yang sudah lama pemutihan untuk pemusnahan dan beli forklift baru (MTC, GS & WH) untuk perbaikan perawatan", involved: ["MTC", "GS", "WH"] },
+
+        // DEPT CORCOM & LP
+        { id: "COR-1", dept: "CORCOM_LP", goal: "WELFARE", targetGroup: "Kenyamanan & Welfare Karyawan", text: "Pertimbangan untuk penempatan tim toko ketika di dekat rumahnya karena issue sering dijadikan tempat nongkrong temannya (LP, OPR) untuk kenyamanan karyawan", involved: ["LP", "OPR"] }
+    ];
+
+    /*
+     * SLIDE DECK STRUCTURE & CONTENT DEFINITION
+     */
+    const presentationSlides = [
+        {
+            id: 1,
+            category: "OVERVIEW & VISI",
+            categoryIcon: "fa-regular fa-compass",
+            depts: "SELURUH DEPARTEMEN",
+            title: "KONSOLIDASI STRATEGIS: SHARING BERSAMA MNO",
+            note: "Slide Pembuka: Penyelarasan isu operasional dan strategi tindak lanjut antar departemen.",
+            render: () => `
+                <div class="h-full flex flex-col justify-center items-center text-center space-y-6 py-4">
+                    <div class="w-20 h-20 bg-red-100 rounded-3xl flex items-center justify-center text-red-600 text-3xl font-black shadow-inner border border-red-200">
+                        <i class="fa-solid fa-handshake-angle"></i>
+                    </div>
+                    <div class="space-y-2 max-w-3xl">
+                        <h2 class="text-3xl md:text-4xl font-black text-slate-900 leading-tight">
+                            Menghubungkan Benang Merah Eksekusi Operational & Support
+                        </h2>
+                        <p class="text-sm md:text-base text-slate-600 font-medium">
+                            Sintesis 100+ Isu & Tindakan Strategis untuk Cabang Manado & Area Operasional
+                        </p>
+                    </div>
+                    
+                    <div class="grid grid-cols-2 md:grid-cols-4 gap-4 w-full max-w-4xl pt-4">
+                        <div class="p-4 bg-slate-50 rounded-2xl border border-slate-200 text-left">
+                            <div class="text-red-600 font-black text-2xl">8 Focus</div>
+                            <div class="text-xs font-bold text-slate-700">Area Benang Merah</div>
+                        </div>
+                        <div class="p-4 bg-slate-50 rounded-2xl border border-slate-200 text-left">
+                            <div class="text-red-600 font-black text-2xl">11 Dept</div>
+                            <div class="text-xs font-bold text-slate-700">Sinergi Lintas Sektor</div>
+                        </div>
+                        <div class="p-4 bg-slate-50 rounded-2xl border border-slate-200 text-left">
+                            <div class="text-red-600 font-black text-2xl">100+ Poin</div>
+                            <div class="text-xs font-bold text-slate-700">Tindakan Konkret</div>
+                        </div>
+                        <div class="p-4 bg-slate-50 rounded-2xl border border-slate-200 text-left">
+                            <div class="text-red-600 font-black text-2xl">2026/27</div>
+                            <div class="text-xs font-bold text-slate-700">Target Operational</div>
+                        </div>
+                    </div>
+                </div>
+            `
+        },
+        {
+            id: 2,
+            category: "EXECUTIVE SUMMARY",
+            categoryIcon: "fa-solid fa-chart-pie",
+            depts: "OPR, PD, GS, TAFIS, IT, WH, MD, LOC, BLD, MTC",
+            title: "RINGKASAN BENANG MERAH TEMA UTAMA",
+            note: "Topik bahasan dikelompokkan ke dalam 8 pilar utama untuk kemudahan eksekusi.",
+            render: () => `
+                <div class="grid grid-cols-1 md:grid-cols-2 gap-4 h-full">
+                    <div class="bg-red-50/50 p-4 rounded-2xl border border-red-100 flex items-start gap-3">
+                        <div class="p-2.5 bg-red-600 text-white rounded-xl font-bold"><i class="fa-solid fa-shield-cat"></i></div>
+                        <div>
+                            <h4 class="font-bold text-sm text-red-900">1. Penekanan NSB (Shrinkage)</h4>
+                            <p class="text-xs text-slate-600 mt-1">Audit SO, pengawasan lift barang, cctv standard 2 unit, variasi kabel ties susu/rokok, BAP koli template & investigasi B-Log.</p>
+                        </div>
+                    </div>
+
+                    <div class="bg-amber-50/50 p-4 rounded-2xl border border-amber-100 flex items-start gap-3">
+                        <div class="p-2.5 bg-amber-600 text-white rounded-xl font-bold"><i class="fa-solid fa-users-gear"></i></div>
+                        <div>
+                            <h4 class="font-bold text-sm text-amber-900">2. Efisiensi Turn Over & MPP</h4>
+                            <p class="text-xs text-slate-600 mt-1">Master Shift pejabat, pembatasan lembur WH, kosan Halmahera, percepatan kelas ACOS/COS, evaluasi mutasi cepat 1-2 hari.</p>
+                        </div>
+                    </div>
+
+                    <div class="bg-emerald-50/50 p-4 rounded-2xl border border-emerald-100 flex items-start gap-3">
+                        <div class="p-2.5 bg-emerald-600 text-white rounded-xl font-bold"><i class="fa-solid fa-sack-dollar"></i></div>
+                        <div>
+                            <h4 class="font-bold text-sm text-emerald-900">3. Cashflow & Pengendalian LPT</h4>
+                            <p class="text-xs text-slate-600 mt-1">Pembebanan HNBD 2026, launching aturan LPT, wajib QRIS non-tunai, ECR kasir, penyiapan cash Nataru & Lelilef.</p>
+                        </div>
+                    </div>
+
+                    <div class="bg-blue-50/50 p-4 rounded-2xl border border-blue-100 flex items-start gap-3">
+                        <div class="p-2.5 bg-blue-600 text-white rounded-xl font-bold"><i class="fa-solid fa-truck-ramp-box"></i></div>
+                        <div>
+                            <h4 class="font-bold text-sm text-blue-900">4. Perbaikan OOS & Service Level Supplier</h4>
+                            <p class="text-xs text-slate-600 mt-1">Container fresh food, kelancaran TTF Malut, mesin scan depo, BKL galon auto-email, penyesuaian armada TS/TB.</p>
+                        </div>
+                    </div>
+
+                    <div class="bg-purple-50/50 p-4 rounded-2xl border border-purple-100 flex items-start gap-3">
+                        <div class="p-2.5 bg-purple-600 text-white rounded-xl font-bold"><i class="fa-solid fa-boxes-packing"></i></div>
+                        <div>
+                            <h4 class="font-bold text-sm text-purple-900">5. Aset, Komputer & Maintenance</h4>
+                            <p class="text-xs text-slate-600 mt-1">Pengurangan komputer kasir <15jt SPD jadi 2 unit, buffer hardware/UPS, Blitz pole sign, FO cable layout, MTC genset/pallet mover.</p>
+                        </div>
+                    </div>
+
+                    <div class="bg-indigo-50/50 p-4 rounded-2xl border border-indigo-100 flex items-start gap-3">
+                        <div class="p-2.5 bg-indigo-600 text-white rounded-xl font-bold"><i class="fa-solid fa-store"></i></div>
+                        <div>
+                            <h4 class="font-bold text-sm text-indigo-900">6. Expansion & Grand Opening (GO)</h4>
+                            <p class="text-xs text-slate-600 mt-1">Sumber Rejo GO 31 Des 2026, Google Earth survey (BLD/LOC), 9 toko Halteng 2027, lift coran planning, H-3 GO readiness.</p>
+                        </div>
+                    </div>
+                </div>
+            `
+        },
+        {
+            id: 3,
+            category: "BENANG MERAH 1",
+            categoryIcon: "fa-solid fa-shield-triangle-exclamation",
+            depts: "OPR, WH, GS, IT, TAFIS, SQ, IC, BLD, MTC",
+            title: "SISTEMATIKA PENEKANAN NSB (NOTA SELISIH BARANG)",
+            note: "NSB dibedah total dari alur barang datang hingga penerimaan konsumen.",
+            render: () => `
+                <div class="space-y-3">
+                    <div class="p-3 bg-red-50 border-l-4 border-red-600 rounded-r-xl">
+                        <h4 class="font-bold text-xs text-red-900 uppercase">Strategi Pengawasan & Kontrol Fisik Barang</h4>
+                    </div>
+                    <div class="grid grid-cols-1 md:grid-cols-2 gap-3 text-xs">
+                        <div class="p-3 bg-white border border-slate-200 rounded-xl shadow-sm">
+                            <span class="font-black text-red-600">Gudang Lt. 2 & SPD >30Jt:</span> Pengadaan Lift Barang (BLD & MTC) agar penataan barang tidak terhambat.
+                        </div>
+                        <div class="p-3 bg-white border border-slate-200 rounded-xl shadow-sm">
+                            <span class="font-black text-red-600">Pencegahan Fraud Driver:</span> Warna kabel ties susu bayi/rokok dibeda-bedakan (WH). Analisa tipe mobil B-Log (bak terbuka vs tertutup) pada toko NSB besar.
+                        </div>
+                        <div class="p-3 bg-white border border-slate-200 rounded-xl shadow-sm">
+                            <span class="font-black text-red-600">Standard CCTV:</span> Minimal 2 unit standar CCTV (GS & IT) di titik krusial NSB tinggi sesuai budget.
+                        </div>
+                        <div class="p-3 bg-white border border-slate-200 rounded-xl shadow-sm">
+                            <span class="font-black text-red-600">Digitalisasi BAP Koli:</span> Template BAP koli kiriman WH ditaruh di desktop kasir agar pelaporan instan.
+                        </div>
+                        <div class="p-3 bg-white border border-slate-200 rounded-xl shadow-sm">
+                            <span class="font-black text-red-600">Audit SO & IC:</span> SO Brankas IC tidak boleh keluar-masuk. Sidak Korwil pasca SO IC. Review jadwal SO Grand & SO Fresh.
+                        </div>
+                        <div class="p-3 bg-white border border-slate-200 rounded-xl shadow-sm">
+                            <span class="font-black text-red-600">Fraud Kasir:</span> Monitoring komparasi data clerek kasir dengan data NSB toko (IT, OPR, SQ).
+                        </div>
+                    </div>
+                </div>
+            `
+        },
+        {
+            id: 4,
+            category: "BENANG MERAH 2",
+            categoryIcon: "fa-solid fa-users",
+            depts: "PD, OPR, WH, SQ",
+            title: "STRATEGI MENEKAN TURN OVER (TO) KARYAWAN & PEMENUHAN MPP",
+            note: "Pemenuhan MPP berbasis prioritas sales & perlindungan mental/fisik personil.",
+            render: () => `
+                <div class="space-y-3">
+                    <div class="p-3 bg-amber-50 border-l-4 border-amber-600 rounded-r-xl">
+                        <h4 class="font-bold text-xs text-amber-900 uppercase">Restrukturisasi Jadwal & Kesejahteraan Karyawan</h4>
+                    </div>
+                    <div class="grid grid-cols-1 md:grid-cols-2 gap-3 text-xs">
+                        <div class="p-3 bg-white border border-slate-200 rounded-xl shadow-sm">
+                            <strong class="text-amber-700">Prioritas Sales MPP:</strong> Pemenuhan MPP tidak diratakan, tetapi diprioritaskan untuk toko dengan sales tertinggi terlebih dahulu.
+                        </div>
+                        <div class="p-3 bg-white border border-slate-200 rounded-xl shadow-sm">
+                            <strong class="text-amber-700">Evaluasi Master Shift:</strong> Pejabat minimal level MD harus terdistribusi merata di setiap shift (termasuk shift malam toko 24 jam).
+                        </div>
+                        <div class="p-3 bg-white border border-slate-200 rounded-xl shadow-sm">
+                            <strong class="text-amber-700">Shift Malam Fatigue:</strong> Evaluasi jam kerja & shifting gender male (mencegah pola malam langsung siang yang memicu resign).
+                        </div>
+                        <div class="p-3 bg-white border border-slate-200 rounded-xl shadow-sm">
+                            <strong class="text-amber-700">Fasilitas Kosan Male & BPDL:</strong> Penyediaan kosan untuk male di Halmahera & klaim BPDL + akomodasi cuti 1x untuk mutasi wilayah.
+                        </div>
+                        <div class="p-3 bg-white border border-slate-200 rounded-xl shadow-sm">
+                            <strong class="text-amber-700">WH Overtime & Engagement:</strong> Pengendalian lembur WH (tgl 1, 3, 4, 9, 10, 11, 12), penambahan kontainer, serta acara engagement ILM & COI Senam.
+                        </div>
+                        <div class="p-3 bg-white border border-slate-200 rounded-xl shadow-sm">
+                            <strong class="text-amber-700">Karir & Onboarding:</strong> Fast-track kelas ACOS/COS, roleplay successor kasir, dan penghentian mutasi cepat (1-2 hari kerja).
+                        </div>
+                    </div>
+                </div>
+            `
+        },
+        {
+            id: 5,
+            category: "BENANG MERAH 3",
+            categoryIcon: "fa-solid fa-money-bill-transfer",
+            depts: "TAFIS, GS, OPR, IT, CORCOM",
+            title: "BISNIS PROSES CASHFLOW, LPT & PENGENDALIAN KEUANGAN",
+            note: "Optimalisasi penerimaan tunai/non-tunai dan kepastian tata kelola anggaran.",
+            render: () => `
+                <div class="grid grid-cols-1 md:grid-cols-3 gap-3 h-full text-xs">
+                    <div class="p-4 bg-white border border-slate-200 rounded-2xl space-y-2">
+                        <div class="text-xs font-black text-red-600 uppercase flex items-center gap-1.5"><i class="fa-solid fa-calculator"></i> Realisasi HNBD & LPT</div>
+                        <p class="text-slate-600">Pembebanan HNBD selesai di closing 2026 dengan simulasi sales target toko non-IKT.</p>
+                        <p class="text-slate-600">Aturan LPT dilaunching awal dengan monitoring pola analisis dari TAFIS.</p>
+                    </div>
+                    <div class="p-4 bg-white border border-slate-200 rounded-2xl space-y-2">
+                        <div class="text-xs font-black text-emerald-600 uppercase flex items-center gap-1.5"><i class="fa-solid fa-qrcode"></i> Digital Payment & Cash Prep</div>
+                        <p class="text-slate-600">Woro-woro QRIS untuk LPT non-tunai & wajib ECR di kasir.</p>
+                        <p class="text-slate-600">Persiapan uang tunai khusus festive Nataru & toko wilayah non-QRIS (Halut & Lelilef Group).</p>
+                    </div>
+                    <div class="p-4 bg-white border border-slate-200 rounded-2xl space-y-2">
+                        <div class="text-xs font-black text-blue-600 uppercase flex items-center gap-1.5"><i class="fa-solid fa-file-invoice-dollar"></i> Anggaran & Perizinan</div>
+                        <p class="text-slate-600">RRAK wajib penekanan realisasi (bukan sekadar claim). Estimasi RRAK air Cleo toko JA-DI.</p>
+                        <p class="text-slate-600">Uji kelayakan LLAJ dengan CORCOM terkait akses pejalan kaki (klaim Rp300jt).</p>
+                    </div>
+                </div>
+            `
+        },
+        {
+            id: 6,
+            category: "BENANG MERAH 4",
+            categoryIcon: "fa-solid fa-truck-fast",
+            depts: "WH, MD, TAFIS, GS, OPR, SQ",
+            title: "PERBAIKAN OOS & SERVICE LEVEL SUPPLIER BKL",
+            note: "Menjamin ketersediaan pasokan barang dan memperlancar pembayaran vendor.",
+            render: () => `
+                <div class="space-y-3 text-xs">
+                    <div class="grid grid-cols-1 md:grid-cols-2 gap-3">
+                        <div class="p-3 bg-blue-50 border border-blue-200 rounded-xl space-y-1">
+                            <h5 class="font-extrabold text-blue-900">Kelancaran Kiriman & Rantai Pasok</h5>
+                            <p class="text-slate-700">• Perubahan kiriman kontainer Fresh Food & armada prefer TS dibanding TB.</p>
+                            <p class="text-slate-700">• Depo Ternate dilarang operasional hari Minggu (mencegah TOTI & TO manual).</p>
+                            <p class="text-slate-700">• Beban delivery cost Malut dibebaskan (tidak perlu terlalu efisiensi) demi kelancaran OOS.</p>
+                        </div>
+                        <div class="p-3 bg-emerald-50 border border-emerald-200 rounded-xl space-y-1">
+                            <h5 class="font-extrabold text-emerald-900">Service Level Supplier & BKL</h5>
+                            <p class="text-slate-700">• Penyederhanaan TTF supplier Malut & UMKM agar vendor mau rutin kirim.</p>
+                            <p class="text-slate-700">• Pengadaan mesin scan TTF Depo Ternate (gantikan HP).</p>
+                            <p class="text-slate-700">• Auto-email On Hand BKL Galon & pengadaan stempel jelas di toko.</p>
+                        </div>
+                    </div>
+                    <div class="p-3 bg-white border border-slate-200 rounded-xl flex items-center gap-4">
+                        <i class="fa-solid fa-apple-whole text-red-500 text-2xl"></i>
+                        <div>
+                            <span class="font-bold text-slate-800">Lock Supplier Buah & Sayur Fresh:</span>
+                            <p class="text-slate-600">Lock supplier buah wajib penuhi 80% forecasting. Program bantu estimasi fresh food dengan koefisien khusus (SQ, BM, WH).</p>
+                        </div>
+                    </div>
+                </div>
+            `
+        },
+        {
+            id: 7,
+            category: "BENANG MERAH 5",
+            categoryIcon: "fa-solid fa-screwdriver-wrench",
+            depts: "GS, IT, MTC, BLD, TAFIS",
+            title: "EFISIENSI ASET, HARDWARE & MAINTENANCE TOKO",
+            note: "Standardisasi penggunaan komputer kasir, perbaikan AHO, dan kepastian vendor.",
+            render: () => `
+                <div class="grid grid-cols-1 md:grid-cols-2 gap-3 text-xs">
+                    <div class="p-3 bg-white border border-slate-200 rounded-xl space-y-2">
+                        <div class="font-bold text-red-600 flex items-center gap-1.5"><i class="fa-solid fa-desktop"></i> Optimasi Komputer Kasir & Hardware</div>
+                        <p class="text-slate-600">Toko SPD <15 Juta dengan 3 kasir dikurangi menjadi 2 kasir. 1 unit ditarik jadi buffer toko existing.</p>
+                        <p class="text-slate-600">Posisi kasir utama dilarang di dekat pintu (validasi data transaksi per komputer).</p>
+                        <p class="text-slate-600">Checklist UPS Server toko & layout jalur kabel FO oleh IT/BLD/MTC.</p>
+                    </div>
+                    <div class="p-3 bg-white border border-slate-200 rounded-xl space-y-2">
+                        <div class="font-bold text-slate-800 flex items-center gap-1.5"><i class="fa-solid fa-gears"></i> Maintenance & Keuangan Vendor</div>
+                        <p class="text-slate-600">Penyelesaian utang tagihan vendor CCTV & percetakan (wajib PO/email resmi).</p>
+                        <p class="text-slate-600">Penyediaan buffer sparepart CCTV & SPK toko berdekatan.</p>
+                        <p class="text-slate-600">Buffer roda pallet mover, pemutihan forklift tua, MTC pendampingan Genset/AC, dan sosialisasi SO Aset.</p>
+                    </div>
+                </div>
+            `
+        },
+        {
+            id: 8,
+            category: "BENANG MERAH 6",
+            categoryIcon: "fa-solid fa-store",
+            depts: "BLD, LOC, MTC, GS, OPR, MD",
+            title: "EKSPANSI STORE GO & PERSIAPAN INFRASTRUKTUR",
+            note: "Tepat waktu Grand Opening 2026/2027 tanpa mengabaikan kualitas bangunan.",
+            render: () => `
+                <div class="space-y-3 text-xs">
+                    <div class="grid grid-cols-1 md:grid-cols-3 gap-3">
+                        <div class="p-3 bg-indigo-50 border border-indigo-200 rounded-xl">
+                            <h5 class="font-bold text-indigo-900">Target Location (LOC)</h5>
+                            <p class="text-slate-600 mt-1">Sumber Rejo GO 31 Des 2026. Target 9 toko Halteng di 2027. Pengukuran lokasi jauh dibantu teknologi / Google Earth.</p>
+                        </div>
+                        <div class="p-3 bg-indigo-50 border border-indigo-200 rounded-xl">
+                            <h5 class="font-bold text-indigo-900">Konstruksi Building (BLD)</h5>
+                            <p class="text-slate-600 mt-1">Gunakan Blitz untuk Pole Sign/Shop Sign GO. Siapkan titik coran lift barang & 2 rak Galon/LPG per toko baru.</p>
+                        </div>
+                        <div class="p-3 bg-indigo-50 border border-indigo-200 rounded-xl">
+                            <h5 class="font-bold text-indigo-900">Time Table GO</h5>
+                            <p class="text-slate-600 mt-1">Listrik terpasang H-3 GO. BKL Fresh masuk H-3 s/d H-1 GO. Target ST toko GO 2027 tidak boleh mundur.</p>
+                        </div>
+                    </div>
+                </div>
+            `
+        },
+        {
+            id: 9,
+            category: "BENANG MERAH 7",
+            categoryIcon: "fa-solid fa-tree",
+            depts: "WH, MD, OPR, PD, TAFIS",
+            title: "PERSIAPAN KHUSUS FESTIVE NATARU 2026",
+            note: "Strategi stok, receiving, & penyiapan personil jelang puncak penjualan Nataru.",
+            render: () => `
+                <div class="grid grid-cols-1 md:grid-cols-2 gap-4 text-xs">
+                    <div class="p-4 bg-red-50 border border-red-200 rounded-2xl space-y-2">
+                        <h4 class="font-black text-red-700 text-sm flex items-center gap-2"><i class="fa-solid fa-boxes-stacked"></i> Logistics & Stock Buffer</h4>
+                        <p class="text-slate-700"><b>Receiving Timeline:</b> Perhitungan receiving Nataru dimulai H-3 (22 Desember).</p>
+                        <p class="text-slate-700"><b>Supplier Alignment:</b> Koordinasi khusus dengan supplier Pareto & Non-Pareto.</p>
+                        <p class="text-slate-700"><b>Gudang Sewa Beras Malut:</b> Konfirmasi kebutuhan gudang sewa beras Malut. Beras SPHP wajib dialasi (tidak menempel lantai).</p>
+                    </div>
+                    <div class="p-4 bg-amber-50 border border-amber-200 rounded-2xl space-y-2">
+                        <h4 class="font-black text-amber-800 text-sm flex items-center gap-2"><i class="fa-solid fa-user-plus"></i> Manpower & Cash Flow</h4>
+                        <p class="text-slate-700"><b>Penempatan PHL:</b> Mapping penempatan personil Harian Lepas (PHL) Festive Nataru (PD & WH).</p>
+                        <p class="text-slate-700"><b>Cash Availability:</b> Penyiapan modal uang tunai kasir di area growth tinggi (TAFIS & OPR).</p>
+                    </div>
+                </div>
+            `
+        },
+        {
+            id: 10,
+            category: "BENANG MERAH 8",
+            categoryIcon: "fa-solid fa-heart",
+            depts: "GS, PD, WH, BLD, LOC, LP",
+            title: "FASILITAS & KENYAMANAN KARYAWAN (WELFARE)",
+            note: "Fasilitas kerja dan mess yang manusiawi meningkatkan produktivitas.",
+            render: () => `
+                <div class="grid grid-cols-1 md:grid-cols-3 gap-3 text-xs">
+                    <div class="p-3 bg-white border border-slate-200 rounded-xl space-y-1">
+                        <div class="font-bold text-red-600"><i class="fa-solid fa-bed"></i> Mess Office (BLD & LOC)</div>
+                        <p class="text-slate-600">Pembangunan mess office terpisah dengan 2 pintu keluar agar kunjungan office tidak lalu-lalang di dalam toko.</p>
+                        <p class="text-slate-600">Penyediaan loker bantal & ranjang susun yang cukup.</p>
+                    </div>
+                    <div class="p-3 bg-white border border-slate-200 rounded-xl space-y-1">
+                        <div class="font-bold text-blue-600"><i class="fa-solid fa-warehouse"></i> Fasilitas Warehouse</div>
+                        <p class="text-slate-600">Ruang istirahat layak untuk tim WH lengkap dengan pengadaan barang & fasilitas santai.</p>
+                        <p class="text-slate-600">Pengadaan Safety Shoes untuk personil WH.</p>
+                    </div>
+                    <div class="p-3 bg-white border border-slate-200 rounded-xl space-y-1">
+                        <div class="font-bold text-emerald-600"><i class="fa-solid fa-house-user"></i> Placement & Kosan</div>
+                        <p class="text-slate-600">Fasilitas kosan male di Halmahera. Pertimbangan lokasi penempatan toko agar tidak terlalu dekat rumah jika berpotensi nongkrong (LP).</p>
+                    </div>
+                </div>
+            `
+        },
+        {
+            id: 11,
+            category: "ACTION PLAN",
+            categoryIcon: "fa-solid fa-list-check",
+            depts: "ALL DEPT",
+            title: "TIMELINE & TANGGUNG JAWAB MATRIKS BESOK",
+            note: "Rencana diskusi bersama seluruh Head & PIC Departemen.",
+            render: () => `
+                <div class="space-y-3 text-xs">
+                    <div class="p-3 bg-slate-100 rounded-xl font-bold text-slate-800">
+                        Agenda Pembahasan Rapat Pleno Besok:
+                    </div>
+                    <div class="grid grid-cols-1 md:grid-cols-2 gap-3">
+                        <div class="p-3 bg-white border border-slate-200 rounded-xl">
+                            <span class="font-bold text-red-600">Sesi 1: Penyelarasan NSB & Cashflow</span>
+                            <p class="text-slate-500 mt-1">Cross-check OPR, WH, TAFIS, IT, & GS terkait CCTV, LPT, BAP koli, dan B-Log fraud.</p>
+                        </div>
+                        <div class="p-3 bg-white border border-slate-200 rounded-xl">
+                            <span class="font-bold text-amber-600">Sesi 2: People, Overtime & Welfare</span>
+                            <p class="text-slate-500 mt-1">Finalisasi aturan lembur WH, Master Shift pejabat, Kosan male, & penempatan PHL Nataru.</p>
+                        </div>
+                        <div class="p-3 bg-white border border-slate-200 rounded-xl">
+                            <span class="font-bold text-blue-600">Sesi 3: Supply Chain & Service Level</span>
+                            <p class="text-slate-500 mt-1">Penyelesaian TTF Malut/UMKM, Auto-email Galon, & Kontainer Fresh Food.</p>
+                        </div>
+                        <div class="p-3 bg-white border border-slate-200 rounded-xl">
+                            <span class="font-bold text-indigo-600">Sesi 4: Expansion (LOC, BLD, MTC) & Maintenance</span>
+                            <p class="text-slate-500 mt-1">Komitmen GO Sumber Rejo & Halteng 2027, Lift barang coran, genset/AC maintenance, & optimasi Komputer Kasir.</p>
+                        </div>
+                    </div>
+                </div>
+            `
+        },
+        {
+            id: 12,
+            category: "KESIMPULAN",
+            categoryIcon: "fa-solid fa-flag-checkered",
+            depts: "ALL DEPT",
+            title: "KOMITMEN BERSAMA EKSEKUSI MNO",
+            note: "Penutup: Menyatukan langkah untuk pencapaian kinerja terbaik Manado.",
+            render: () => `
+                <div class="h-full flex flex-col justify-center items-center text-center space-y-5">
+                    <div class="w-16 h-16 bg-red-600 text-white rounded-2xl flex items-center justify-center text-2xl font-black shadow-lg">
+                        <i class="fa-solid fa-circle-check"></i>
+                    </div>
+                    <h2 class="text-2xl md:text-3xl font-black text-slate-900">Satu Komitmen, Satu Tujuan Eksekusi</h2>
+                    <p class="text-xs md:text-sm text-slate-600 max-w-xl">
+                        Semua poin yang telah dipetakan adalah kunci sukses bersama. Kolaborasi lintas departemen yang solid adalah jembatan menuju perbaikan NSB, penekanan TO, dan operational excellence.
+                    </p>
+                    <div class="pt-2">
+                        <button onclick="switchView('matrix')" class="px-6 py-3 bg-slate-900 text-white hover:bg-red-600 font-bold text-xs rounded-xl transition flex items-center gap-2 shadow-md">
+                            <i class="fa-solid fa-diagram-project"></i>
+                            <span>Buka Matriks Detail Poin Issue</span>
+                        </button>
+                    </div>
+                </div>
+            `
+        }
+    ];
+
+    /*
+     * DEPARTMENT LIST & MAPPING SYSTEM (PROPDEV split into LOC, BLD, MTC)
+     */
+    const departmentsList = [
+        { id: "OPR", name: "Operation (OPR)", icon: "fa-store" },
+        { id: "PD", name: "People Dev (PD)", icon: "fa-users" },
+        { id: "GS", name: "General Service (GS)", icon: "fa-truck" },
+        { id: "TAFIS", name: "Tax & Finance (TAFIS)", icon: "fa-calculator" },
+        { id: "IT", name: "Information Tech (IT)", icon: "fa-network-wired" },
+        { id: "WH", name: "Warehouse (WH)", icon: "fa-warehouse" },
+        { id: "MD", name: "Merchandising (MD)", icon: "fa-boxes-packing" },
+        { id: "LOC", name: "Location (LOC)", icon: "fa-map-location-dot" },
+        { id: "BLD", name: "Building (BLD)", icon: "fa-compass-drafting" },
+        { id: "MTC", name: "Maintenance (MTC)", icon: "fa-screwdriver-wrench" },
+        { id: "CORCOM_LP", name: "Corcom & LP", icon: "fa-shield-halved" }
+    ];
+
+    let activeDeptId = "OPR";
+
+    /*
+     * LOCAL STORAGE MANAGER FOR FOLLOW-UP DATA
+     * Key Structure: followUpStore[deptId][itemId] = { action: "", timeline: "", status: "Progress" }
+     * Isolates each department's inputs so duplicated items do NOT overwrite each other.
+     */
+    const STORAGE_KEY = "MNO_FOLLOWUP_STORAGE_V2";
+    let followUpStore = {};
+
+    function loadFollowUpStore() {
+        try {
+            const saved = localStorage.getItem(STORAGE_KEY);
+            if (saved) {
+                followUpStore = JSON.parse(saved);
+            }
+        } catch (e) {
+            console.error("Gagal memuat data dari LocalStorage:", e);
+            followUpStore = {};
+        }
+    }
+
+    function saveFollowUpStore() {
+        try {
+            localStorage.setItem(STORAGE_KEY, JSON.stringify(followUpStore));
+        } catch (e) {
+            console.error("Gagal menyimpan data ke LocalStorage:", e);
+        }
+    }
+
+    /*
+     * DEPT MATCHING HELPER
+     * Maps raw items to department tabs based on primary dept AND involved tags.
+     * Ensures multi-dept items are duplicated correctly across all relevant tabs.
+     */
+    function getItemsForDept(deptId) {
+        return rawMeetingData.filter(item => {
+            // Check primary department match
+            if (item.dept === deptId) return true;
+
+            // Check involved tags
+            if (item.involved && Array.isArray(item.involved)) {
+                if (item.involved.includes(deptId)) return true;
+
+                // Alias Mapping
+                if (deptId === "CORCOM_LP" && item.involved.some(d => ["CORCOM", "LP", "CORCOM_LP"].includes(d))) return true;
+                if (deptId === "OPR" && item.involved.some(d => ["IC", "SQ", "BM"].includes(d))) return true;
+            }
+            return false;
+        });
+    }
+
+    let currentSlideIndex = 0;
+    let isFullscreen = false;
+
+    window.addEventListener('DOMContentLoaded', () => {
+        loadFollowUpStore();
+        renderSlide(currentSlideIndex);
+        buildOverviewGrid();
+        buildDepartmentTabs();
+        renderMatrixCards(rawMeetingData);
+        
+        // Keyboard Navigation Listener
+        document.addEventListener('keydown', (e) => {
+            if (document.getElementById('deckView').classList.contains('hidden')) return;
+            if (e.key === 'ArrowRight' || e.key === 'Space') {
+                nextSlide();
+            } else if (e.key === 'ArrowLeft') {
+                prevSlide();
+            } else if (e.key === 'f' || e.key === 'F') {
+                toggleFullscreen();
+            }
+        });
+    });
+
+    function renderSlide(index) {
+        const slide = presentationSlides[index];
+        const slideBody = document.getElementById('slideBody');
+        
+        // GSAP Morph/Fade Animation out
+        gsap.to(slideBody, {
+            opacity: 0,
+            y: -10,
+            duration: 0.2,
+            onComplete: () => {
+                // Update Header Badges & Text
+                document.getElementById('slideCategoryText').innerText = slide.category;
+                document.getElementById('slideCategoryIcon').className = slide.categoryIcon;
+                document.getElementById('slideDepts').innerText = slide.depts;
+                document.getElementById('currentSlideNum').innerText = String(slide.id).padStart(2, '0');
+                document.getElementById('totalSlideNum').innerText = String(presentationSlides.length).padStart(2, '0');
+                document.getElementById('speakerNoteText').innerText = slide.note;
+
+                // Render inner html content
+                slideBody.innerHTML = `
+                    <div class="space-y-4">
+                        <h2 class="text-xl md:text-2xl font-black text-slate-900 tracking-tight leading-snug">
+                            ${slide.title}
+                        </h2>
+                        ${slide.render()}
+                    </div>
+                `;
+
+                // Update Progress Bar
+                const percent = Math.round(((index + 1) / presentationSlides.length) * 100);
+                document.getElementById('progressBar').style.width = `${percent}%`;
+                document.getElementById('progressPercent').innerText = `${percent}%`;
+
+                // GSAP Morph/Fade Animation in
+                gsap.fromTo(slideBody, 
+                    { opacity: 0, y: 15 }, 
+                    { opacity: 1, y: 0, duration: 0.3, ease: 'power2.out' }
+                );
+            }
+        });
+    }
+
+    function nextSlide() {
+        if (currentSlideIndex < presentationSlides.length - 1) {
+            currentSlideIndex++;
+            renderSlide(currentSlideIndex);
+        }
+    }
+
+    function prevSlide() {
+        if (currentSlideIndex > 0) {
+            currentSlideIndex--;
+            renderSlide(currentSlideIndex);
+        }
+    }
+
+    function jumpToSlide(index) {
+        currentSlideIndex = index;
+        renderSlide(currentSlideIndex);
+        switchView('deck');
+        toggleOverviewModal(false);
+    }
+
+    function switchView(viewMode) {
+        const deckView = document.getElementById('deckView');
+        const matrixView = document.getElementById('matrixView');
+        const deptView = document.getElementById('deptView');
+
+        const btnDeck = document.getElementById('viewDeckBtn');
+        const btnMatrix = document.getElementById('viewMatrixBtn');
+        const btnDept = document.getElementById('viewDeptBtn');
+
+        // Hide all
+        deckView.classList.add('hidden');
+        matrixView.classList.add('hidden');
+        deptView.classList.add('hidden');
+
+        // Reset Button Styles
+        [btnDeck, btnMatrix, btnDept].forEach(btn => {
+            btn.className = "px-3 py-1.5 rounded-lg text-xs font-bold text-slate-600 hover:text-slate-900 hover:bg-slate-200 transition flex items-center gap-1.5";
+        });
+
+        if (viewMode === 'deck') {
+            deckView.classList.remove('hidden');
+            btnDeck.className = "px-3 py-1.5 rounded-lg text-xs font-bold transition flex items-center gap-1.5 bg-red-600 text-white shadow";
+        } else if (viewMode === 'matrix') {
+            matrixView.classList.remove('hidden');
+            btnMatrix.className = "px-3 py-1.5 rounded-lg text-xs font-bold transition flex items-center gap-1.5 bg-red-600 text-white shadow";
+        } else if (viewMode === 'dept') {
+            deptView.classList.remove('hidden');
+            btnDept.className = "px-3 py-1.5 rounded-lg text-xs font-bold transition flex items-center gap-1.5 bg-red-600 text-white shadow";
+        }
+    }
+
+    function renderMatrixCards(items) {
+        const container = document.getElementById('matrixGrid');
+        if (items.length === 0) {
+            container.innerHTML = `
+                <div class="col-span-full text-center py-12 text-slate-400 font-semibold text-xs">
+                    Tidak ada isu / poin tindakan yang sesuai dengan kriteria pencarian.
+                </div>
+            `;
+            return;
+        }
+
+        container.innerHTML = items.map(item => {
+            const targetColor = getTargetBadgeColor(item.goal);
+            return `
+                <div class="bg-white p-4 rounded-2xl border border-slate-200 shadow-sm hover:shadow-md transition space-y-3 flex flex-col justify-between">
+                    <div class="space-y-2">
+                        <div class="flex items-center justify-between gap-2">
+                            <span class="px-2.5 py-0.5 rounded-full text-[10px] font-black uppercase ${targetColor}">
+                                ${item.targetGroup}
+                            </span>
+                            <span class="text-[10px] font-mono text-slate-400 font-bold">${item.id}</span>
+                        </div>
+                        <p class="text-xs font-semibold text-slate-800 leading-relaxed">${item.text}</p>
+                    </div>
+                    <div class="pt-2 border-t border-slate-100 flex items-center justify-between text-[11px]">
+                        <span class="text-slate-500 font-bold">Dept Utama: <strong class="text-slate-900">${item.dept}</strong></span>
+                        <div class="flex gap-1 flex-wrap justify-end">
+                            ${item.involved.map(d => `<span class="px-1.5 py-0.5 bg-slate-100 text-slate-600 rounded font-extrabold text-[9px] border">${d}</span>`).join('')}
+                        </div>
+                    </div>
+                </div>
+            `;
+        }).join('');
+    }
+
+    function filterMatrix() {
+        const searchTerm = document.getElementById('matrixSearch').value.toLowerCase();
+        const targetFilter = document.getElementById('matrixTargetFilter').value;
+
+        const filtered = rawMeetingData.filter(item => {
+            const matchesSearch = item.text.toLowerCase().includes(searchTerm) || 
+                                  item.dept.toLowerCase().includes(searchTerm) ||
+                                  item.id.toLowerCase().includes(searchTerm);
+            const matchesTarget = targetFilter === 'ALL' || item.goal === targetFilter;
+            return matchesSearch && matchesTarget;
+        });
+
+        renderMatrixCards(filtered);
+    }
+
+    function getTargetBadgeColor(goal) {
+        switch(goal) {
+            case 'NSB': return 'bg-red-100 text-red-700 border border-red-200';
+            case 'TO': return 'bg-amber-100 text-amber-800 border border-amber-200';
+            case 'CASHFLOW': return 'bg-emerald-100 text-emerald-800 border border-emerald-200';
+            case 'OOS': return 'bg-blue-100 text-blue-800 border border-blue-200';
+            case 'ASET': return 'bg-purple-100 text-purple-800 border border-purple-200';
+            case 'GO': return 'bg-indigo-100 text-indigo-800 border border-indigo-200';
+            case 'NATARU': return 'bg-rose-100 text-rose-800 border border-rose-200';
+            case 'WELFARE': return 'bg-teal-100 text-teal-800 border border-teal-200';
+            default: return 'bg-slate-100 text-slate-700';
+        }
+    }
+
+    function buildDepartmentTabs() {
+        const container = document.getElementById('deptTabsContainer');
+        container.innerHTML = departmentsList.map(dept => {
+            const deptItemCount = getItemsForDept(dept.id).length;
+            return `
+                <button onclick="selectDeptTab('${dept.id}')" id="deptTab-${dept.id}" class="px-4 py-2 rounded-xl text-xs font-bold whitespace-nowrap transition flex items-center gap-2 ${dept.id === activeDeptId ? 'bg-red-600 text-white shadow' : 'bg-slate-50 text-slate-600 hover:bg-slate-100'}">
+                    <i class="fa-solid ${dept.icon}"></i>
+                    <span>${dept.name}</span>
+                    <span class="px-1.5 py-0.2 text-[10px] rounded-full ${dept.id === activeDeptId ? 'bg-white/20 text-white' : 'bg-slate-200 text-slate-700'}">${deptItemCount}</span>
+                </button>
+            `;
+        }).join('');
+
+        renderDeptContent(activeDeptId);
+    }
+
+    function selectDeptTab(deptId) {
+        activeDeptId = deptId;
+        buildDepartmentTabs();
+    }
+
+    /*
+     * RENDER DEPARTMENT FOLLOW-UP INTERACTIVE FORM
+     */
+    function renderDeptContent(deptId) {
+        const container = document.getElementById('deptContentArea');
+        const items = getItemsForDept(deptId);
+
+        if (!followUpStore[deptId]) {
+            followUpStore[deptId] = {};
+        }
+
+        container.innerHTML = `
+            <div class="bg-white p-6 rounded-2xl shadow-sm border border-slate-200 space-y-6">
+                <div class="flex flex-col md:flex-row md:items-center justify-between pb-4 border-b border-slate-100 gap-3">
+                    <div>
+                        <h3 class="text-lg font-black text-slate-900 flex items-center gap-2">
+                            <i class="fa-solid fa-folder-open text-red-600"></i>
+                            <span>Poin Kesepakatan & Follow Up: ${departmentsList.find(d => d.id === deptId).name}</span>
+                        </h3>
+                        <p class="text-xs text-slate-500 mt-0.5">Isi action plan, timeline, dan status untuk departemen ini. Data tersimpan mandiri per departemen.</p>
+                    </div>
+                    <div class="flex items-center gap-2">
+                        <button onclick="saveAllDeptFollowUps('${deptId}')" class="px-4 py-2 bg-red-600 hover:bg-red-700 text-white font-extrabold text-xs rounded-xl transition flex items-center gap-2 shadow-md shadow-red-600/20">
+                            <i class="fa-solid fa-floppy-disk"></i>
+                            <span>Simpan Semua Poin (${deptId})</span>
+                        </button>
+                    </div>
+                </div>
+
+                <div class="space-y-4">
+                    ${items.length === 0 ? `
+                        <div class="text-center py-8 text-slate-400 font-semibold text-xs">
+                            Belum ada isu terdaftar khusus untuk departemen ${deptId}.
+                        </div>
+                    ` : items.map((item, idx) => {
+                        const savedVal = followUpStore[deptId][item.id] || { action: "", timeline: "", status: "Progress" };
+                        const statusSelect = savedVal.status || "Progress";
+
+                        return `
+                            <div class="p-4 bg-slate-50/80 rounded-2xl border border-slate-200 space-y-3 hover:border-slate-300 transition">
+                                <div class="flex items-start justify-between gap-3">
+                                    <div class="flex items-start gap-3">
+                                        <span class="w-6 h-6 rounded-full bg-red-600 text-white flex items-center justify-center font-black text-[10px] shrink-0 mt-0.5">${idx + 1}</span>
+                                        <div class="space-y-1">
+                                            <div class="flex items-center gap-2 flex-wrap">
+                                                <span class="text-[10px] font-mono font-bold text-slate-400 bg-white px-2 py-0.5 rounded border border-slate-200">${item.id}</span>
+                                                <span class="text-[9px] font-black uppercase px-2 py-0.5 rounded ${getTargetBadgeColor(item.goal)}">${item.targetGroup}</span>${item.dept !== deptId ? `<span class="text-[9px] bg-amber-100 text-amber-800 font-extrabold px-2 py-0.5 rounded border border-amber-200">Dept Utama: ${item.dept}</span>` : ''}
+                                            </div>
+                                            <p class="text-xs font-semibold text-slate-800 leading-relaxed">${item.text}</p>
+                                        </div>
+                                    </div>
+                                </div>
+
+                                <!-- FOLLOW-UP INPUT FORM FIELDS -->
+                                <div class="pt-3 border-t border-slate-200/60 grid grid-cols-1 md:grid-cols-12 gap-3 bg-white p-3 rounded-xl border border-slate-200">
+                                    
+                                    <!-- HASIL FOLLOW UP / ACTION -->
+                                    <div class="md:col-span-6 space-y-1">
+                                        <label class="text-[10px] font-extrabold text-slate-600 uppercase flex items-center gap-1">
+                                            <i class="fa-solid fa-pen-to-square text-red-500"></i>
+                                            <span>Hasil Follow Up / Action Plan</span>
+                                        </label>
+                                        <textarea id="action_${deptId}_${item.id}" rows="2" placeholder="Tuliskan tindakan/solusi yang dilakukan..." class="w-full text-xs p-2.5 bg-slate-50 border border-slate-200 rounded-lg focus:outline-none focus:ring-1 focus:ring-red-500 text-slate-800 resize-none font-medium">${savedVal.action || ""}</textarea>
+                                    </div>
+
+                                    <!-- TIMELINE EKSEKUSI -->
+                                    <div class="md:col-span-3 space-y-1">
+                                        <label class="text-[10px] font-extrabold text-slate-600 uppercase flex items-center gap-1">
+                                            <i class="fa-solid fa-calendar-days text-blue-500"></i>
+                                            <span>Timeline / Target</span>
+                                        </label>
+                                        <input type="text" id="timeline_${deptId}_${item.id}" value="${savedVal.timeline || ""}" placeholder="Contoh: Minggu 2 Oct / 15 Oct" class="w-full text-xs p-2.5 bg-slate-50 border border-slate-200 rounded-lg focus:outline-none focus:ring-1 focus:ring-red-500 text-slate-800 font-medium">
+                                    </div>
+
+                                    <!-- KETERANGAN / STATUS DROPDOWN -->
+                                    <div class="md:col-span-3 space-y-1">
+                                        <label class="text-[10px] font-extrabold text-slate-600 uppercase flex items-center gap-1">
+                                            <i class="fa-solid fa-list-check text-emerald-500"></i>
+                                            <span>Keterangan Status</span>
+                                        </label>
+                                        <select id="status_${deptId}_${item.id}" class="w-full text-xs p-2.5 bg-slate-50 border border-slate-200 rounded-lg focus:outline-none focus:ring-1 focus:ring-red-500 font-black text-slate-800">
+                                            <option value="Progress" ${statusSelect === 'Progress' ? 'selected' : ''} class="text-amber-600 font-bold">🟡 Progress</option>
+                                            <option value="Done" ${statusSelect === 'Done' ? 'selected' : ''} class="text-emerald-600 font-bold">🟢 Done</option>
+                                            <option value="NOK" ${statusSelect === 'NOK' ? 'selected' : ''} class="text-red-600 font-bold">🔴 NOK</option>
+                                        </select>
+                                        
+                                        <!-- INDIVIDUAL SAVE BUTTON -->
+                                        <div class="pt-1 text-right">
+                                            <button onclick="saveSingleFollowUp('${deptId}', '${item.id}')" class="px-2.5 py-1 bg-slate-800 hover:bg-red-600 text-white rounded-md text-[10px] font-bold transition flex items-center gap-1 ml-auto">
+                                                <i class="fa-solid fa-check"></i>
+                                                <span>Simpan</span>
+                                            </button>
+                                        </div>
+                                    </div>
+
+                                </div>
+                            </div>
+                        `;
+                    }).join('')}
+                </div>
+            </div>
+        `;
+    }
+
+    /*
+     * SAVE FUNCTIONS
+     */
+    function saveSingleFollowUp(deptId, itemId) {
+        const actionVal = document.getElementById(`action_${deptId}_${itemId}`).value;
+        const timelineVal = document.getElementById(`timeline_${deptId}_${itemId}`).value;
+        const statusVal = document.getElementById(`status_${deptId}_${itemId}`).value;
+
+        if (!followUpStore[deptId]) {
+            followUpStore[deptId] = {};
+        }
+
+        followUpStore[deptId][itemId] = {
+            action: actionVal,
+            timeline: timelineVal,
+            status: statusVal
+        };
+
+        saveFollowUpStore();
+        showToastNotice(`Saved (${itemId})`, `Data follow-up item ${itemId} untuk ${deptId} berhasil diperbarui.`);
+    }
+
+    function saveAllDeptFollowUps(deptId) {
+        const items = getItemsForDept(deptId);
+        if (!followUpStore[deptId]) {
+            followUpStore[deptId] = {};
+        }
+
+        items.forEach(item => {
+            const actionEl = document.getElementById(`action_${deptId}_${item.id}`);
+            const timelineEl = document.getElementById(`timeline_${deptId}_${item.id}`);
+            const statusEl = document.getElementById(`status_${deptId}_${item.id}`);
+
+            if (actionEl && timelineEl && statusEl) {
+                followUpStore[deptId][item.id] = {
+                    action: actionEl.value,
+                    timeline: timelineEl.value,
+                    status: statusEl.value
+                };
+            }
+        });
+
+        saveFollowUpStore();
+        showToastNotice("Data Departemen Tersimpan!", `Seluruh data follow-up untuk departemen ${deptId} berhasil tersimpan.`);
+    }
+
+    function showToastNotice(title, msg) {
+        const toast = document.getElementById('toastNotice');
+        document.getElementById('toastTitle').innerText = title;
+        document.getElementById('toastMsg').innerText = msg;
+
+        toast.classList.remove('opacity-0', 'pointer-events-none', 'translate-y-[-100px]');
+        toast.classList.add('opacity-100', 'translate-y-0');
+
+        setTimeout(() => {
+            toast.classList.remove('opacity-100', 'translate-y-0');
+            toast.classList.add('opacity-0', 'pointer-events-none', 'translate-y-[-100px]');
+        }, 3000);
+    }
+
+    /*
+     * AUTOMATIC MULTI-SHEET EXCEL EXPORT (1 Sheet Per Departemen)
+     */
+    function exportToExcel() {
+        if (typeof XLSX === 'undefined') {
+            alert("Library Export Excel sedang di-load. Silakan coba sebentar lagi.");
+            return;
+        }
+
+        const wb = XLSX.utils.book_new();
+
+        departmentsList.forEach(dept => {
+            const deptItems = getItemsForDept(dept.id);
+            const deptData = followUpStore[dept.id] || {};
+
+            const sheetRows = deptItems.map((item, index) => {
+                const fu = deptData[item.id] || { action: "", timeline: "", status: "Progress" };
+                return {
+                    "No": index + 1,
+                    "Kode Issue": item.id,
+                    "Dept Penanggung Jawab Utama": item.dept,
+                    "Lintas Dept Terlibat": item.involved.join(', '),
+                    "Target Perbaikan": item.targetGroup,
+                    "Poin Isu / Kesepakatan Discussion": item.text,
+                    "Hasil Follow Up / Action Plan": fu.action || "-",
+                    "Timeline Eksekusi": fu.timeline || "-",
+                    "Keterangan Status": fu.status || "Progress"
+                };
+            });
+
+            const ws = XLSX.utils.json_to_sheet(sheetRows);
+
+            // Define Column Widths
+            ws['!cols'] = [
+                { wch: 5 },   // No
+                { wch: 12 },  // Kode
+                { wch: 15 },  // Dept Utama
+                { wch: 20 },  // Lintas Dept
+                { wch: 25 },  // Target
+                { wch: 60 },  // Poin Isu
+                { wch: 40 },  // Action Plan
+                { wch: 20 },  // Timeline
+                { wch: 15 }   // Status
+            ];
+
+            // Sheet Name max 31 chars
+            const sheetName = dept.id.replace(/[\/\\?\*\[\]]/g, "_");
+            XLSX.utils.book_append_sheet(wb, ws, sheetName);
+        });
+
+        const fileName = `Hasil_Follow_Up_MNO_All_Departments_${new Date().toISOString().slice(0, 10)}.xlsx`;
+        XLSX.writeFile(wb, fileName);
+        showToastNotice("Export Excel Berhasil!", "File Excel dengan 1 sheet per departemen telah di-download.");
+    }
+
+    function buildOverviewGrid() {
+        const container = document.getElementById('overviewGrid');
+        container.innerHTML = presentationSlides.map((slide, idx) => `
+            <div onclick="jumpToSlide(${idx})" class="bg-slate-50 border border-slate-200 hover:border-red-500 rounded-2xl p-4 cursor-pointer hover:shadow-md transition space-y-2 flex flex-col justify-between h-36">
+                <div class="space-y-1">
+                    <div class="text-[10px] font-black text-red-600 tracking-wider">SLIDE ${String(slide.id).padStart(2, '0')}</div>
+                    <h4 class="text-xs font-bold text-slate-900 line-clamp-2">${slide.title}</h4>
+                </div>
+                <span class="text-[9px] text-slate-400 font-semibold truncate">${slide.category}</span>
+            </div>
+        `).join('');
+    }
+
+    function toggleOverviewModal(forceState) {
+        const modal = document.getElementById('overviewModal');
+        if (forceState !== undefined) {
+            if (forceState) modal.classList.remove('hidden');
+            else modal.classList.add('hidden');
+        } else {
+            modal.classList.toggle('hidden');
+        }
+    }
+
+    function toggleFullscreen() {
+        if (!document.fullscreenElement) {
+            document.documentElement.requestFullscreen();
+            document.getElementById('fullscreenIcon').className = 'fa-solid fa-compress text-lg';
+        } else {
+            if (document.exitFullscreen) {
+                document.exitFullscreen();
+                document.getElementById('fullscreenIcon').className = 'fa-expand text-lg';
+            }
+        }
+    }
+</script>
+
+</body>
+</html>
