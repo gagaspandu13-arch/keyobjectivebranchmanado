@@ -1147,13 +1147,13 @@
                                         <textarea id="action_${deptId}_${item.id}" rows="2" placeholder="Tuliskan tindakan/solusi yang dilakukan..." class="w-full text-xs p-2.5 bg-slate-50 border border-slate-200 rounded-lg focus:outline-none focus:ring-1 focus:ring-red-500 text-slate-800 resize-none font-medium">${savedVal.action || ""}</textarea>
                                     </div>
 
-                                    <!-- TIMELINE EKSEKUSI -->
+                                    <!-- TIMELINE EKSEKUSI (KALENDER DATE PICKER) -->
                                     <div class="md:col-span-3 space-y-1">
                                         <label class="text-[10px] font-extrabold text-slate-600 uppercase flex items-center gap-1">
                                             <i class="fa-solid fa-calendar-days text-blue-500"></i>
-                                            <span>Timeline / Target</span>
+                                            <span>Target Tanggal Selesai</span>
                                         </label>
-                                        <input type="text" id="timeline_${deptId}_${item.id}" value="${savedVal.timeline || ""}" placeholder="Contoh: Minggu 2 Oct / 15 Oct" class="w-full text-xs p-2.5 bg-slate-50 border border-slate-200 rounded-lg focus:outline-none focus:ring-1 focus:ring-red-500 text-slate-800 font-medium">
+                                        <input type="date" id="timeline_${deptId}_${item.id}" value="${savedVal.timeline || ""}" class="w-full text-xs p-2 bg-slate-50 border border-slate-200 rounded-lg focus:outline-none focus:ring-1 focus:ring-red-500 text-slate-800 font-medium">
                                     </div>
 
                                     <!-- KETERANGAN / STATUS DROPDOWN -->
@@ -1271,7 +1271,7 @@
                     "Target Perbaikan": item.targetGroup,
                     "Poin Isu / Kesepakatan Discussion": item.text,
                     "Hasil Follow Up / Action Plan": fu.action || "-",
-                    "Timeline Eksekusi": fu.timeline || "-",
+                    "Target Tanggal (Timeline)": fu.timeline || "-",
                     "Keterangan Status": fu.status || "Progress"
                 };
             });
@@ -1287,7 +1287,7 @@
                 { wch: 25 },  // Target
                 { wch: 60 },  // Poin Isu
                 { wch: 40 },  // Action Plan
-                { wch: 20 },  // Timeline
+                { wch: 18 },  // Timeline
                 { wch: 15 }   // Status
             ];
 
