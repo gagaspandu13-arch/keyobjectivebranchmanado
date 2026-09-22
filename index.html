@@ -270,7 +270,7 @@
                 <i class="fa-solid fa-grid text-red-600"></i>
                 <span>Daftar Seluruh Slide Presentation</span>
             </h3>
-            <button onclick="toggleOverviewModal()" class="text-slate-400 hover:text-slate-700 p-2 rounded-xl">
+            <button onclick="toggleOverviewModal(false)" class="text-slate-400 hover:text-slate-700 p-2 rounded-xl">
                 <i class="fa-solid fa-xmark text-xl"></i>
             </button>
         </div>
@@ -890,6 +890,35 @@
     let gasWebAppUrl = localStorage.getItem(GAS_URL_STORAGE_KEY) || DEFAULT_GAS_URL;
     let followUpStore = {};
 
+    /* HELPER: Format Tanggal Otomatis ke YYYY-MM-DD untuk Input Date */
+    function formatDateForInput(dateStr) {
+        if (!dateStr) return "";
+        if (typeof dateStr === 'string') {
+            // Jika format ISO String (misal "2026-09-25T00:00:00.000Z") atau "YYYY-MM-DD"
+            const matchIso = dateStr.match(/^(\d{4}-\d{2}-\d{2})/);
+            if (matchIso) return matchIso[1];
+
+            // Jika format "DD/MM/YYYY" atau "DD-MM-YYYY" dari spreadsheet
+            const matchDdmmyyyy = dateStr.match(/^(\d{1,2})[\/\-](\d{1,2})[\/\-](\d{4})/);
+            if (matchDdmmyyyy) {
+                const day = String(matchDdmmyyyy[1]).padStart(2, '0');
+                const month = String(matchDdmmyyyy[2]).padStart(2, '0');
+                const year = matchDdmmyyyy[3];
+                return `${year}-${month}-${day}`;
+            }
+        }
+        
+        // Coba parsing ke Date JavaScript
+        const d = new Date(dateStr);
+        if (!isNaN(d.getTime())) {
+            const year = d.getFullYear();
+            const month = String(d.getMonth() + 1).padStart(2, '0');
+            const day = String(d.getDate()).padStart(2, '0');
+            return `${year}-${month}-${day}`;
+        }
+        return dateStr;
+    }
+
     function updateCloudSyncUI(statusState, customMsg) {
         const badge = document.getElementById('cloudSyncBadge');
         const text = document.getElementById('cloudSyncText');
@@ -914,6 +943,14 @@
             const saved = localStorage.getItem(STORAGE_KEY);
             if (saved) {
                 followUpStore = JSON.parse(saved);
+                // Sanitize semua timeline yang tersimpan
+                Object.keys(followUpStore).forEach(dept => {
+                    Object.keys(followUpStore[dept]).forEach(itemId => {
+                        if (followUpStore[dept][itemId].timeline) {
+                            followUpStore[dept][itemId].timeline = formatDateForInput(followUpStore[dept][itemId].timeline);
+                        }
+                    });
+                });
             }
         } catch (e) {
             console.error("Gagal memuat data dari LocalStorage:", e);
@@ -946,9 +983,19 @@
             const result = await response.json();
 
             if (result && result.status === 'success' && result.followUpStore) {
+                // Formatting tanggal secara konsisten
+                Object.keys(result.followUpStore).forEach(deptKey => {
+                    Object.keys(result.followUpStore[deptKey]).forEach(itemKey => {
+                        if (result.followUpStore[deptKey][itemKey].timeline) {
+                            result.followUpStore[deptKey][itemKey].timeline = formatDateForInput(result.followUpStore[deptKey][itemKey].timeline);
+                        }
+                    });
+                });
+
                 // Merge data dari Spreadsheet dengan lokal
                 followUpStore = { ...followUpStore, ...result.followUpStore };
                 saveLocalBackup();
+                
                 if (document.getElementById('deptView') && !document.getElementById('deptView').classList.contains('hidden')) {
                     renderDeptContent(activeDeptId);
                 }
@@ -991,6 +1038,14 @@
             const result = await response.json();
             if (result && result.status === 'success') {
                 if (result.followUpStore) {
+                    // Format tanggal
+                    Object.keys(result.followUpStore).forEach(deptKey => {
+                        Object.keys(result.followUpStore[deptKey]).forEach(itemKey => {
+                            if (result.followUpStore[deptKey][itemKey].timeline) {
+                                result.followUpStore[deptKey][itemKey].timeline = formatDateForInput(result.followUpStore[deptKey][itemKey].timeline);
+                            }
+                        });
+                    });
                     followUpStore = result.followUpStore;
                     saveLocalBackup();
                     if (document.getElementById('deptView') && !document.getElementById('deptView').classList.contains('hidden')) {
@@ -1276,6 +1331,7 @@
                     ` : items.map((item, idx) => {
                         const savedVal = followUpStore[deptId][item.id] || { action: "", timeline: "", status: "Progress" };
                         const statusSelect = savedVal.status || "Progress";
+                        const formattedTimeline = formatDateForInput(savedVal.timeline || "");
 
                         return `
                             <div class="p-4 bg-slate-50/80 rounded-2xl border border-slate-200 space-y-3 hover:border-slate-300 transition">
@@ -1310,7 +1366,7 @@
                                             <i class="fa-solid fa-calendar-days text-blue-500"></i>
                                             <span>Target Tanggal Selesai</span>
                                         </label>
-                                        <input type="date" id="timeline_${deptId}_${item.id}" value="${savedVal.timeline || ""}" class="w-full text-xs p-2 bg-slate-50 border border-slate-200 rounded-lg focus:outline-none focus:ring-1 focus:ring-red-500 text-slate-800 font-medium">
+                                        <input type="date" id="timeline_${deptId}_${item.id}" value="${formattedTimeline}" class="w-full text-xs p-2 bg-slate-50 border border-slate-200 rounded-lg focus:outline-none focus:ring-1 focus:ring-red-500 text-slate-800 font-medium">
                                     </div>
 
                                     <!-- KETERANGAN / STATUS DROPDOWN -->
@@ -1324,11 +1380,6 @@
                                             <option value="Done" ${statusSelect === 'Done' ? 'selected' : ''} class="text-emerald-600 font-bold">🟢 Done</option>
                                             <option value="NOK" ${statusSelect === 'NOK' ? 'selected' : ''} class="text-red-600 font-bold">🔴 NOK</option>
                                         </select>
-                                        
-                                        <!-- INDIVIDUAL SAVE BUTTON -->
-                                        <div class="pt-1 text-right">
-                                            <button onclick="saveSingleFollowUp('${deptId}', '${item.id}')" class="px-2.5 py-1 bg-slate-800 hover:bg-slate-900 text-white font-extrabold text-[10px] rounded-lg transition shadow-sm">Simpan Poin Ini</button>
-                                        </div>
                                     </div>
                                 </div>
                             </div>
@@ -1339,25 +1390,12 @@
         `;
     }
 
-    /*
-     * SAVE FOLLOW-UP HANDLERS
-     */
-    function saveSingleFollowUp(deptId, itemId) {
-        const action = document.getElementById(`action_${deptId}_${itemId}`).value;
-        const timeline = document.getElementById(`timeline_${deptId}_${itemId}`).value;
-        const status = document.getElementById(`status_${deptId}_${itemId}`).value;
-
-        if (!followUpStore[deptId]) followUpStore[deptId] = {};
-        followUpStore[deptId][itemId] = { action, timeline, status };
-
-        syncDataToGSheet().then(success => {
-            showToastNotice("Poin Disimpan!", `Data item ${itemId} telah tersimpan.`);
-        });
-    }
-
-    function saveAllDeptFollowUps(deptId) {
+    /* SAVE ALL FOLLOW UPS PER DEPT */
+    async function saveAllDeptFollowUps(deptId) {
         const items = getItemsForDept(deptId);
-        if (!followUpStore[deptId]) followUpStore[deptId] = {};
+        if (!followUpStore[deptId]) {
+            followUpStore[deptId] = {};
+        }
 
         items.forEach(item => {
             const actionEl = document.getElementById(`action_${deptId}_${item.id}`);
@@ -1366,111 +1404,122 @@
 
             if (actionEl && timelineEl && statusEl) {
                 followUpStore[deptId][item.id] = {
-                    action: actionEl.value,
-                    timeline: timelineEl.value,
+                    action: actionEl.value.trim(),
+                    timeline: formatDateForInput(timelineEl.value),
                     status: statusEl.value
                 };
             }
         });
 
-        syncDataToGSheet().then(success => {
-            showToastNotice("Semua Poin Disimpan!", `Semua follow-up untuk departemen ${deptId} berhasil tersimpan.`);
-        });
+        saveLocalBackup();
+        showToastNotice("Data Disimpan!", "Menyinkronkan ke Google Spreadsheet...");
+        
+        const synced = await syncDataToGSheet();
+        if (synced) {
+            showToastNotice("Berhasil Disimpan!", "Data telah terupdate di Google Spreadsheet.");
+        } else {
+            showToastNotice("Tersimpan Lokal!", "Data disimpan di browser (Google Sheet offline/error).");
+        }
     }
 
-    /*
-     * TOAST NOTIFICATION UTILITY
-     */
+    /* SHOW TOAST NOTIFICATION */
     function showToastNotice(title, msg) {
         const toast = document.getElementById('toastNotice');
-        document.getElementById('toastTitle').innerText = title;
-        document.getElementById('toastMsg').innerText = msg;
+        const toastTitle = document.getElementById('toastTitle');
+        const toastMsg = document.getElementById('toastMsg');
 
-        toast.classList.remove('translate-y-[-100px]', 'opacity-0', 'pointer-events-none');
-        toast.classList.add('translate-y-0', 'opacity-100');
+        if (toast && toastTitle && toastMsg) {
+            toastTitle.innerText = title;
+            toastMsg.innerText = msg;
 
-        setTimeout(() => {
-            toast.classList.remove('translate-y-0', 'opacity-100');
-            toast.classList.add('translate-y-[-100px]', 'opacity-0', 'pointer-events-none');
-        }, 3000);
+            toast.classList.remove('translate-y-[-100px]', 'opacity-0', 'pointer-events-none');
+            toast.classList.add('translate-y-0', 'opacity-100');
+
+            setTimeout(() => {
+                toast.classList.remove('translate-y-0', 'opacity-100');
+                toast.classList.add('translate-y-[-100px]', 'opacity-0', 'pointer-events-none');
+            }, 3500);
+        }
     }
 
-    /*
-     * OVERVIEW / THUMBNAIL MODAL UTILITIES
-     */
+    /* BUILD OVERVIEW THUMBNAIL GRID */
     function buildOverviewGrid() {
-        const container = document.getElementById('overviewGrid');
-        container.innerHTML = presentationSlides.map((slide, idx) => `
-            <div onclick="jumpToSlide(${idx})" class="p-3 bg-slate-50 hover:bg-red-50 border border-slate-200 hover:border-red-300 rounded-2xl cursor-pointer transition flex flex-col justify-between space-y-2 group">
-                <div class="flex items-center justify-between">
-                    <span class="text-[10px] font-black text-red-600 uppercase">${slide.category}</span>
-                    <span class="text-[10px] font-bold text-slate-400">#${slide.id}</span>
+        const grid = document.getElementById('overviewGrid');
+        if (!grid) return;
+        grid.innerHTML = presentationSlides.map((slide, idx) => `
+            <div onclick="jumpToSlide(${idx})" class="p-3 bg-slate-50 border border-slate-200 hover:border-red-500 rounded-2xl cursor-pointer transition flex flex-col justify-between group">
+                <div class="space-y-1">
+                    <div class="flex items-center justify-between">
+                        <span class="text-[10px] font-black text-red-600">SLIDE ${String(slide.id).padStart(2, '0')}</span>
+                        <i class="fa-solid ${slide.categoryIcon} text-slate-400 text-xs"></i>
+                    </div>
+                    <h5 class="text-xs font-bold text-slate-800 group-hover:text-red-600 transition line-clamp-2">${slide.title}</h5>
                 </div>
-                <h4 class="text-xs font-bold text-slate-800 group-hover:text-red-700 line-clamp-2">${slide.title}</h4>
-                <p class="text-[10px] text-slate-400 font-semibold">${slide.depts}</p>
+                <p class="text-[10px] text-slate-500 mt-2 truncate">${slide.depts}</p>
             </div>
         `).join('');
     }
 
+    /* TOGGLE OVERVIEW MODAL */
     function toggleOverviewModal(show) {
         const modal = document.getElementById('overviewModal');
-        if (show === undefined) {
-            modal.classList.toggle('hidden');
-        } else if (show) {
-            modal.classList.remove('hidden');
+        if (!modal) return;
+        if (typeof show === 'boolean') {
+            if (show) modal.classList.remove('hidden');
+            else modal.classList.add('hidden');
         } else {
-            modal.classList.add('hidden');
+            modal.classList.toggle('hidden');
         }
     }
 
-    /*
-     * FULLSCREEN TOGGLE UTILITY
-     */
+    /* TOGGLE FULLSCREEN MODE */
     function toggleFullscreen() {
         const icon = document.getElementById('fullscreenIcon');
         if (!document.fullscreenElement) {
             document.documentElement.requestFullscreen().catch(err => console.log(err));
-            icon.className = "fa-solid fa-compress text-lg";
+            if (icon) icon.className = "fa-solid fa-compress text-lg";
         } else {
             if (document.exitFullscreen) {
                 document.exitFullscreen();
-                icon.className = "fa-solid fa-expand text-lg";
+                if (icon) icon.className = "fa-solid fa-expand text-lg";
             }
         }
     }
 
-    /*
-     * EXPORT TO EXCEL UTILITY (1 Sheet per Department)
-     */
+    /* EXPORT ALL DEPARTMENTS DATA TO EXCEL WORKBOOK */
     function exportToExcel() {
-        const wb = XLSX.utils.book_new();
+        try {
+            const wb = XLSX.utils.book_new();
 
-        departmentsList.forEach(dept => {
-            const deptItems = getItemsForDept(dept.id);
-            const deptData = followUpStore[dept.id] || {};
+            departmentsList.forEach(dept => {
+                const items = getItemsForDept(dept.id);
+                const data = items.map((item, idx) => {
+                    const saved = (followUpStore[dept.id] && followUpStore[dept.id][item.id]) || {};
+                    return {
+                        "No": idx + 1,
+                        "ID Isu": item.id,
+                        "Departemen Utama": item.dept,
+                        "Target Perbaikan": item.targetGroup,
+                        "Poin Kesepakatan / Isu": item.text,
+                        "Hasil Follow Up / Action Plan": saved.action || "",
+                        "Target Tanggal Selesai": formatDateForInput(saved.timeline || ""),
+                        "Status": saved.status || "Progress"
+                    };
+                });
 
-            const rows = deptItems.map(item => {
-                const followUp = deptData[item.id] || {};
-                return {
-                    "Kode Item": item.id,
-                    "Target Perbaikan": item.targetGroup,
-                    "Departemen Utama": item.dept,
-                    "Departemen Terlibat": item.involved.join(", "),
-                    "Isi Poin / Isu Meeting": item.text,
-                    "Hasil Follow Up / Action Plan": followUp.action || "",
-                    "Target Tanggal Selesai": followUp.timeline || "",
-                    "Status Eksekusi": followUp.status || "Progress"
-                };
+                const ws = XLSX.utils.json_to_sheet(data);
+                const sheetName = dept.id.substring(0, 31);
+                XLSX.utils.book_append_sheet(wb, ws, sheetName);
             });
 
-            const sheetName = dept.id.substring(0, 31); // Max length limit sheet Excel
-            const ws = XLSX.utils.json_to_sheet(rows.length > 0 ? rows : [{ "Keterangan": "Belum ada isu terdaftar" }]);
-            XLSX.utils.book_append_sheet(wb, ws, sheetName);
-        });
-
-        XLSX.writeFile(wb, `MNO_Konsolidasi_FollowUp_${new Date().toISOString().slice(0,10)}.xlsx`);
-        showToastNotice("Export Berhasil!", "File Excel seluruh departemen telah diunduh.");
+            XLSX.writeFile(wb, `Sharing_Bersama_MNO_FollowUp_${new Date().toISOString().slice(0, 10)}.xlsx`);
+            showToastNotice("Export Berhasil!", "File Excel telah diunduh.");
+        } catch (err) {
+            console.error("Export error:", err);
+            showToastNotice("Export Gagal", "Terjadi kesalahan saat mengunduh Excel.");
+        }
     }
 </script>
+
 </body>
 </html>
