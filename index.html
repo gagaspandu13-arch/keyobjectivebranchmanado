@@ -14,10 +14,6 @@
     <script src="https://cdn.jsdelivr.net/npm/xlsx@0.18.5/dist/xlsx.full.min.js"></script>
     <!-- GSAP Animation -->
     <script src="https://cdnjs.cloudflare.com/ajax/libs/gsap/3.12.2/gsap.min.js"></script>
-    
-    <!-- Firebase SDKs for Multi-Device Realtime Sync -->
-    <script src="https://www.gstatic.com/firebasejs/9.22.0/firebase-app-compat.js"></script>
-    <script src="https://www.gstatic.com/firebasejs/9.22.0/firebase-database-compat.js"></script>
 
     <style>
         body {
@@ -98,11 +94,11 @@
 
     <!-- Mode Toggle & Quick Controls -->
     <div class="flex items-center space-x-3">
-        <!-- Live Multi-Device Sync Badge Indicator -->
-        <div id="cloudSyncBadge" class="hidden md:flex items-center gap-2 px-3 py-1.5 bg-emerald-50 text-emerald-700 border border-emerald-200 rounded-xl text-xs font-bold" title="Status Sinkronisasi Multi-Device Cloud">
-            <span class="w-2 h-2 rounded-full bg-emerald-500 animate-pulse"></span>
-            <span id="cloudSyncText">Live Cloud Sync Active</span>
-        </div>
+        <!-- Google Apps Script Sync Badge Indicator -->
+        <button onclick="openGasModal()" id="cloudSyncBadge" class="hidden md:flex items-center gap-2 px-3 py-1.5 bg-emerald-50 text-emerald-700 border border-emerald-200 rounded-xl text-xs font-bold hover:bg-emerald-100 transition" title="Atur / Lihat Status Google Spreadsheet Web App URL">
+            <i class="fa-solid fa-file-spreadsheet text-emerald-600"></i>
+            <span id="cloudSyncText">GSheet Sync Active</span>
+        </button>
 
         <div class="bg-slate-100 p-1 rounded-xl flex items-center space-x-1 border border-slate-200">
             <button id="viewDeckBtn" onclick="switchView('deck')" class="px-3 py-1.5 rounded-lg text-xs font-bold transition flex items-center gap-1.5 bg-red-600 text-white shadow">
@@ -284,7 +280,52 @@
     </div>
 </div>
 
+<!-- GOOGLE APPS SCRIPT CONFIGURATION MODAL -->
+<div id="gasModal" class="fixed inset-0 bg-slate-900/60 backdrop-blur-sm z-50 hidden flex items-center justify-center p-6">
+    <div class="bg-white rounded-3xl w-full max-w-xl flex flex-col p-6 shadow-2xl border border-slate-200 space-y-4">
+        <div class="flex items-center justify-between pb-3 border-b border-slate-200">
+            <h3 class="text-base font-black text-slate-900 flex items-center gap-2">
+                <i class="fa-solid fa-file-spreadsheet text-emerald-600"></i>
+                <span>Pengaturan Google Apps Script Web App</span>
+            </h3>
+            <button onclick="closeGasModal()" class="text-slate-400 hover:text-slate-700 p-1.5 rounded-xl">
+                <i class="fa-solid fa-xmark text-lg"></i>
+            </button>
+        </div>
+
+        <div class="space-y-3 text-xs">
+            <p class="text-slate-600">
+                Hubungkan web ini dengan Google Sheet Anda dengan menempelkan <b>Web App URL</b> yang dihasilkan dari Google Apps Script (`Code.gs`).
+            </p>
+            <div class="space-y-1">
+                <label class="font-extrabold text-slate-700">Google Apps Script Web App URL:</label>
+                <input type="text" id="gasUrlInput" placeholder="https://script.google.com/macros/s/.../exec" class="w-full text-xs p-3 bg-slate-50 border border-slate-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-emerald-500 font-mono text-slate-800">
+            </div>
+            <div class="bg-amber-50 border border-amber-200 p-3 rounded-xl text-amber-800 text-[11px] space-y-1">
+                <p class="font-bold flex items-center gap-1"><i class="fa-solid fa-circle-info"></i> Petunjuk Singkat Deployment GAS:</p>
+                <ol class="list-decimal pl-4 space-y-0.5 text-amber-900">
+                    <li>Buka Google Sheet Anda -> Extensions -> Apps Script.</li>
+                    <li>Paste seluruh isi file <b>Code.gs</b> lalu klik Save.</li>
+                    <li>Klik <b>Deploy -> New deployment</b>. Pilih <b>Web app</b>.</li>
+                    <li>Set <i>Execute as: Me</i> & <i>Who has access: Anyone</i>.</li>
+                    <li>Copy URL Web App lalu paste pada kolom di atas dan simpan.</li>
+                </ol>
+            </div>
+        </div>
+
+        <div class="pt-3 border-t border-slate-200 flex items-center justify-end gap-2">
+            <button onclick="closeGasModal()" class="px-4 py-2 bg-slate-100 hover:bg-slate-200 text-slate-700 rounded-xl text-xs font-bold transition">Batal</button>
+            <button onclick="saveGasUrlConfig()" class="px-5 py-2 bg-emerald-600 hover:bg-emerald-700 text-white rounded-xl text-xs font-extrabold transition shadow-md shadow-emerald-600/20">Simpan & Hubungkan</button>
+        </div>
+    </div>
+</div>
+
 <script>
+    /*
+     * DEFAULT GOOGLE APPS SCRIPT URL DIRECTLY CONFIGURED
+     */
+    const DEFAULT_GAS_URL = "https://script.google.com/macros/s/AKfycbwdn-5YeKM3casF4Zkl9TyS3Pr4gSKvCeDSxGVswmr02YpAeffYfCwMQ_pBPCvLsvR3/exec";
+
     /*
      * MASTER DATASET: Parse all meeting notes into structured objects.
      * Categorized into Benang Merah objectives & department tags.
@@ -841,66 +882,32 @@
     let activeDeptId = "OPR";
 
     /*
-     * REALTIME MULTI-DEVICE CLOUD SYNC CONFIGURATION (Firebase Realtime Database)
+     * GOOGLE APPS SCRIPT WEB APP INTEGRATION & LOCAL BACKUP
      */
-    const firebaseConfig = {
-        databaseURL: "https://mno-sharing-alignments-default-rtdb.asia-southeast1.firebasedatabase.app"
-    };
+    const GAS_URL_STORAGE_KEY = "MNO_GAS_WEBAPP_URL_V2";
+    const STORAGE_KEY = "MNO_FOLLOWUP_STORAGE_V2";
+    
+    let gasWebAppUrl = localStorage.getItem(GAS_URL_STORAGE_KEY) || DEFAULT_GAS_URL;
+    let followUpStore = {};
 
-    let dbRef = null;
-    let isCloudConnected = false;
-
-    function initCloudSync() {
-        try {
-            if (typeof firebase !== 'undefined') {
-                if (!firebase.apps.length) {
-                    firebase.initializeApp(firebaseConfig);
-                }
-                dbRef = firebase.database().ref('mno_followUpStore_v2');
-
-                // Real-time listener: Triggers when anyone (e.g. Bu Nana) saves on ANY device
-                dbRef.on('value', (snapshot) => {
-                    const data = snapshot.val();
-                    if (data) {
-                        followUpStore = data;
-                        saveLocalBackup();
-                        if (document.getElementById('deptView') && !document.getElementById('deptView').classList.contains('hidden')) {
-                            renderDeptContent(activeDeptId);
-                        }
-                        updateCloudSyncUI(true);
-                    }
-                }, (error) => {
-                    console.warn("Firebase Realtime Sync fallback to Local & REST:", error);
-                    updateCloudSyncUI(false);
-                });
-            }
-        } catch (e) {
-            console.warn("Cloud DB Initialisation Warning:", e);
-            updateCloudSyncUI(false);
-        }
-    }
-
-    function updateCloudSyncUI(active) {
-        isCloudConnected = active;
+    function updateCloudSyncUI(statusState, customMsg) {
         const badge = document.getElementById('cloudSyncBadge');
         const text = document.getElementById('cloudSyncText');
-        if (badge && text) {
-            badge.classList.remove('hidden');
-            if (active) {
-                badge.className = "hidden md:flex items-center gap-2 px-3 py-1.5 bg-emerald-50 text-emerald-700 border border-emerald-200 rounded-xl text-xs font-bold";
-                text.innerText = "Live Cloud Sync Active";
-            } else {
-                badge.className = "hidden md:flex items-center gap-2 px-3 py-1.5 bg-amber-50 text-amber-700 border border-amber-200 rounded-xl text-xs font-bold";
-                text.innerText = "Local Mode (Synced Local)";
-            }
+        if (!badge || !text) return;
+
+        badge.classList.remove('hidden');
+
+        if (statusState === 'active') {
+            badge.className = "hidden md:flex items-center gap-2 px-3 py-1.5 bg-emerald-50 text-emerald-700 border border-emerald-200 rounded-xl text-xs font-bold hover:bg-emerald-100 transition cursor-pointer";
+            text.innerText = customMsg || "GSheet Sync Active";
+        } else if (statusState === 'syncing') {
+            badge.className = "hidden md:flex items-center gap-2 px-3 py-1.5 bg-blue-50 text-blue-700 border border-blue-200 rounded-xl text-xs font-bold hover:bg-blue-100 transition cursor-pointer";
+            text.innerText = "Menghubungkan...";
+        } else {
+            badge.className = "hidden md:flex items-center gap-2 px-3 py-1.5 bg-amber-50 text-amber-700 border border-amber-200 rounded-xl text-xs font-bold hover:bg-amber-100 transition cursor-pointer";
+            text.innerText = customMsg || "Lokal Mode";
         }
     }
-
-    /*
-     * LOCAL STORAGE MANAGER FOR FOLLOW-UP DATA
-     */
-    const STORAGE_KEY = "MNO_FOLLOWUP_STORAGE_V2";
-    let followUpStore = {};
 
     function loadFollowUpStore() {
         try {
@@ -922,13 +929,104 @@
         }
     }
 
-    function saveFollowUpStore() {
-        saveLocalBackup();
-        if (dbRef) {
-            dbRef.set(followUpStore).catch(err => {
-                console.error("Cloud DB Set Error:", err);
-            });
+    // Mengambil data terbaru dari Google Spreadsheet via Google Apps Script
+    async function syncDataFromGSheet() {
+        if (!gasWebAppUrl) {
+            updateCloudSyncUI('local', 'Lokal Mode');
+            return;
         }
+
+        updateCloudSyncUI('syncing');
+
+        try {
+            const response = await fetch(`${gasWebAppUrl}?action=getData`, {
+                method: 'GET',
+                redirect: 'follow'
+            });
+            const result = await response.json();
+
+            if (result && result.status === 'success' && result.followUpStore) {
+                // Merge data dari Spreadsheet dengan lokal
+                followUpStore = { ...followUpStore, ...result.followUpStore };
+                saveLocalBackup();
+                if (document.getElementById('deptView') && !document.getElementById('deptView').classList.contains('hidden')) {
+                    renderDeptContent(activeDeptId);
+                }
+                updateCloudSyncUI('active', 'GSheet Live Connected');
+            } else {
+                updateCloudSyncUI('local', 'GSheet Status Offline');
+            }
+        } catch (err) {
+            console.warn("Gagal terhubung ke Google Apps Script Web App:", err);
+            updateCloudSyncUI('local', 'Lokal Mode');
+        }
+    }
+
+    // Mengirim dan menyimpan data ke Google Spreadsheet
+    async function syncDataToGSheet() {
+        saveLocalBackup();
+
+        if (!gasWebAppUrl) {
+            return false;
+        }
+
+        updateCloudSyncUI('syncing');
+
+        try {
+            const payload = {
+                action: 'saveData',
+                followUpStore: followUpStore,
+                masterItems: rawMeetingData
+            };
+
+            const response = await fetch(gasWebAppUrl, {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'text/plain;charset=utf-8' // Hindari CORS preflight di GAS
+                },
+                body: JSON.stringify(payload),
+                redirect: 'follow'
+            });
+
+            const result = await response.json();
+            if (result && result.status === 'success') {
+                if (result.followUpStore) {
+                    followUpStore = result.followUpStore;
+                    saveLocalBackup();
+                    if (document.getElementById('deptView') && !document.getElementById('deptView').classList.contains('hidden')) {
+                        renderDeptContent(activeDeptId);
+                    }
+                }
+                updateCloudSyncUI('active', 'GSheet Saved & Synced');
+                return true;
+            } else {
+                updateCloudSyncUI('local', 'GSheet Save Warning');
+                return false;
+            }
+        } catch (err) {
+            console.error("Gagal sinkronisasi data ke Google Sheet:", err);
+            updateCloudSyncUI('local', 'Lokal (GSheet Error)');
+            return false;
+        }
+    }
+
+    /* MODAL GAS CONFIGURATION */
+    function openGasModal() {
+        document.getElementById('gasUrlInput').value = gasWebAppUrl;
+        document.getElementById('gasModal').classList.remove('hidden');
+    }
+
+    function closeGasModal() {
+        document.getElementById('gasModal').classList.add('hidden');
+    }
+
+    function saveGasUrlConfig() {
+        const inputUrl = document.getElementById('gasUrlInput').value.trim();
+        gasWebAppUrl = inputUrl || DEFAULT_GAS_URL;
+        localStorage.setItem(GAS_URL_STORAGE_KEY, gasWebAppUrl);
+        closeGasModal();
+        showToastNotice("URL Disimpan!", "Mencoba menghubungkan web ke Google Sheet...");
+        syncDataFromGSheet();
     }
 
     /*
@@ -950,11 +1048,11 @@
 
     window.addEventListener('DOMContentLoaded', () => {
         loadFollowUpStore();
-        initCloudSync();
         renderSlide(currentSlideIndex);
         buildOverviewGrid();
         buildDepartmentTabs();
         renderMatrixCards(rawMeetingData);
+        syncDataFromGSheet();
         
         // Keyboard Navigation Listener
         document.addEventListener('keydown', (e) => {
@@ -1160,7 +1258,7 @@
                             <i class="fa-solid fa-folder-open text-red-600"></i>
                             <span>Poin Kesepakatan & Follow Up: ${departmentsList.find(d => d.id === deptId).name}</span>
                         </h3>
-                        <p class="text-xs text-slate-500 mt-0.5">Isi action plan, timeline, dan status. Data tersimpan live dan dapat dilihat dari semua device.</p>
+                        <p class="text-xs text-slate-500 mt-0.5">Isi action plan, timeline, dan status. Klik 'Simpan' untuk mengisi kolom Google Spreadsheet secara otomatis.</p>
                     </div>
                     <div class="flex items-center gap-2">
                         <button onclick="saveAllDeptFollowUps('${deptId}')" class="px-4 py-2 bg-red-600 hover:bg-red-700 text-white font-extrabold text-xs rounded-xl transition flex items-center gap-2 shadow-md shadow-red-600/20">
@@ -1229,13 +1327,9 @@
                                         
                                         <!-- INDIVIDUAL SAVE BUTTON -->
                                         <div class="pt-1 text-right">
-                                            <button onclick="saveSingleFollowUp('${deptId}', '${item.id}')" class="px-2.5 py-1 bg-slate-800 hover:bg-red-600 text-white rounded-md text-[10px] font-bold transition flex items-center gap-1 ml-auto">
-                                                <i class="fa-solid fa-check"></i>
-                                                <span>Simpan Live</span>
-                                            </button>
+                                            <button onclick="saveSingleFollowUp('${deptId}', '${item.id}')" class="px-2.5 py-1 bg-slate-800 hover:bg-slate-900 text-white font-extrabold text-[10px] rounded-lg transition shadow-sm">Simpan Poin Ini</button>
                                         </div>
                                     </div>
-
                                 </div>
                             </div>
                         `;
@@ -1246,32 +1340,24 @@
     }
 
     /*
-     * SAVE FUNCTIONS (Saves to both Cloud Realtime DB and LocalStorage)
+     * SAVE FOLLOW-UP HANDLERS
      */
     function saveSingleFollowUp(deptId, itemId) {
-        const actionVal = document.getElementById(`action_${deptId}_${itemId}`).value;
-        const timelineVal = document.getElementById(`timeline_${deptId}_${itemId}`).value;
-        const statusVal = document.getElementById(`status_${deptId}_${itemId}`).value;
+        const action = document.getElementById(`action_${deptId}_${itemId}`).value;
+        const timeline = document.getElementById(`timeline_${deptId}_${itemId}`).value;
+        const status = document.getElementById(`status_${deptId}_${itemId}`).value;
 
-        if (!followUpStore[deptId]) {
-            followUpStore[deptId] = {};
-        }
+        if (!followUpStore[deptId]) followUpStore[deptId] = {};
+        followUpStore[deptId][itemId] = { action, timeline, status };
 
-        followUpStore[deptId][itemId] = {
-            action: actionVal,
-            timeline: timelineVal,
-            status: statusVal
-        };
-
-        saveFollowUpStore();
-        showToastNotice(`Live Synced (${itemId})`, `Data follow-up item ${itemId} tersimpan & dapat dilihat di semua device.`);
+        syncDataToGSheet().then(success => {
+            showToastNotice("Poin Disimpan!", `Data item ${itemId} telah tersimpan.`);
+        });
     }
 
     function saveAllDeptFollowUps(deptId) {
         const items = getItemsForDept(deptId);
-        if (!followUpStore[deptId]) {
-            followUpStore[deptId] = {};
-        }
+        if (!followUpStore[deptId]) followUpStore[deptId] = {};
 
         items.forEach(item => {
             const actionEl = document.getElementById(`action_${deptId}_${item.id}`);
@@ -1287,112 +1373,104 @@
             }
         });
 
-        saveFollowUpStore();
-        showToastNotice("Data Cloud Tersimpan!", `Seluruh data follow-up departemen ${deptId} berhasil tersimpan & tersinkronisasi.`);
+        syncDataToGSheet().then(success => {
+            showToastNotice("Semua Poin Disimpan!", `Semua follow-up untuk departemen ${deptId} berhasil tersimpan.`);
+        });
     }
 
+    /*
+     * TOAST NOTIFICATION UTILITY
+     */
     function showToastNotice(title, msg) {
         const toast = document.getElementById('toastNotice');
         document.getElementById('toastTitle').innerText = title;
         document.getElementById('toastMsg').innerText = msg;
 
-        toast.classList.remove('opacity-0', 'pointer-events-none', 'translate-y-[-100px]');
-        toast.classList.add('opacity-100', 'translate-y-0');
+        toast.classList.remove('translate-y-[-100px]', 'opacity-0', 'pointer-events-none');
+        toast.classList.add('translate-y-0', 'opacity-100');
 
         setTimeout(() => {
-            toast.classList.remove('opacity-100', 'translate-y-0');
-            toast.classList.add('opacity-0', 'pointer-events-none', 'translate-y-[-100px]');
+            toast.classList.remove('translate-y-0', 'opacity-100');
+            toast.classList.add('translate-y-[-100px]', 'opacity-0', 'pointer-events-none');
         }, 3000);
     }
 
     /*
-     * AUTOMATIC MULTI-SHEET EXCEL EXPORT (1 Sheet Per Departemen)
+     * OVERVIEW / THUMBNAIL MODAL UTILITIES
+     */
+    function buildOverviewGrid() {
+        const container = document.getElementById('overviewGrid');
+        container.innerHTML = presentationSlides.map((slide, idx) => `
+            <div onclick="jumpToSlide(${idx})" class="p-3 bg-slate-50 hover:bg-red-50 border border-slate-200 hover:border-red-300 rounded-2xl cursor-pointer transition flex flex-col justify-between space-y-2 group">
+                <div class="flex items-center justify-between">
+                    <span class="text-[10px] font-black text-red-600 uppercase">${slide.category}</span>
+                    <span class="text-[10px] font-bold text-slate-400">#${slide.id}</span>
+                </div>
+                <h4 class="text-xs font-bold text-slate-800 group-hover:text-red-700 line-clamp-2">${slide.title}</h4>
+                <p class="text-[10px] text-slate-400 font-semibold">${slide.depts}</p>
+            </div>
+        `).join('');
+    }
+
+    function toggleOverviewModal(show) {
+        const modal = document.getElementById('overviewModal');
+        if (show === undefined) {
+            modal.classList.toggle('hidden');
+        } else if (show) {
+            modal.classList.remove('hidden');
+        } else {
+            modal.classList.add('hidden');
+        }
+    }
+
+    /*
+     * FULLSCREEN TOGGLE UTILITY
+     */
+    function toggleFullscreen() {
+        const icon = document.getElementById('fullscreenIcon');
+        if (!document.fullscreenElement) {
+            document.documentElement.requestFullscreen().catch(err => console.log(err));
+            icon.className = "fa-solid fa-compress text-lg";
+        } else {
+            if (document.exitFullscreen) {
+                document.exitFullscreen();
+                icon.className = "fa-solid fa-expand text-lg";
+            }
+        }
+    }
+
+    /*
+     * EXPORT TO EXCEL UTILITY (1 Sheet per Department)
      */
     function exportToExcel() {
-        if (typeof XLSX === 'undefined') {
-            alert("Library Export Excel sedang di-load. Silakan coba sebentar lagi.");
-            return;
-        }
-
         const wb = XLSX.utils.book_new();
 
         departmentsList.forEach(dept => {
             const deptItems = getItemsForDept(dept.id);
             const deptData = followUpStore[dept.id] || {};
 
-            const sheetRows = deptItems.map((item, index) => {
-                const fu = deptData[item.id] || { action: "", timeline: "", status: "Progress" };
+            const rows = deptItems.map(item => {
+                const followUp = deptData[item.id] || {};
                 return {
-                    "No": index + 1,
-                    "Kode Issue": item.id,
-                    "Dept Penanggung Jawab Utama": item.dept,
-                    "Lintas Dept Terlibat": item.involved.join(', '),
+                    "Kode Item": item.id,
                     "Target Perbaikan": item.targetGroup,
-                    "Poin Isu / Kesepakatan Discussion": item.text,
-                    "Hasil Follow Up / Action Plan": fu.action || "-",
-                    "Target Tanggal (Timeline)": fu.timeline || "-",
-                    "Keterangan Status": fu.status || "Progress"
+                    "Departemen Utama": item.dept,
+                    "Departemen Terlibat": item.involved.join(", "),
+                    "Isi Poin / Isu Meeting": item.text,
+                    "Hasil Follow Up / Action Plan": followUp.action || "",
+                    "Target Tanggal Selesai": followUp.timeline || "",
+                    "Status Eksekusi": followUp.status || "Progress"
                 };
             });
 
-            const ws = XLSX.utils.json_to_sheet(sheetRows);
-
-            ws['!cols'] = [
-                { wch: 5 },   // No
-                { wch: 12 },  // Kode
-                { wch: 15 },  // Dept Utama
-                { wch: 20 },  // Lintas Dept
-                { wch: 25 },  // Target
-                { wch: 60 },  // Poin Isu
-                { wch: 40 },  // Action Plan
-                { wch: 18 },  // Timeline
-                { wch: 15 }   // Status
-            ];
-
-            const sheetName = dept.id.replace(/[\/\\?\*\[\]]/g, "_");
+            const sheetName = dept.id.substring(0, 31); // Max length limit sheet Excel
+            const ws = XLSX.utils.json_to_sheet(rows.length > 0 ? rows : [{ "Keterangan": "Belum ada isu terdaftar" }]);
             XLSX.utils.book_append_sheet(wb, ws, sheetName);
         });
 
-        const fileName = `Hasil_Follow_Up_MNO_All_Departments_${new Date().toISOString().slice(0, 10)}.xlsx`;
-        XLSX.writeFile(wb, fileName);
-        showToastNotice("Export Excel Berhasil!", "File Excel dengan 1 sheet per departemen telah di-download.");
-    }
-
-    function buildOverviewGrid() {
-        const container = document.getElementById('overviewGrid');
-        container.innerHTML = presentationSlides.map((slide, idx) => `
-            <div onclick="jumpToSlide(${idx})" class="bg-slate-50 border border-slate-200 hover:border-red-500 rounded-2xl p-4 cursor-pointer hover:shadow-md transition space-y-2 flex flex-col justify-between h-36">
-                <div class="space-y-1">
-                    <div class="text-[10px] font-black text-red-600 tracking-wider">SLIDE ${String(slide.id).padStart(2, '0')}</div>
-                    <h4 class="text-xs font-bold text-slate-900 line-clamp-2">${slide.title}</h4>
-                </div>
-                <span class="text-[9px] text-slate-400 font-semibold truncate">${slide.category}</span>
-            </div>
-        `).join('');
-    }
-
-    function toggleOverviewModal(forceState) {
-        const modal = document.getElementById('overviewModal');
-        if (forceState !== undefined) {
-            if (forceState) modal.classList.remove('hidden');
-            else modal.classList.add('hidden');
-        } else {
-            modal.classList.toggle('hidden');
-        }
-    }
-
-    function toggleFullscreen() {
-        if (!document.fullscreenElement) {
-            document.documentElement.requestFullscreen();
-            document.getElementById('fullscreenIcon').className = 'fa-solid fa-compress text-lg';
-        } else {
-            if (document.exitFullscreen) {
-                document.exitFullscreen();
-                document.getElementById('fullscreenIcon').className = 'fa-expand text-lg';
-            }
-        }
+        XLSX.writeFile(wb, `MNO_Konsolidasi_FollowUp_${new Date().toISOString().slice(0,10)}.xlsx`);
+        showToastNotice("Export Berhasil!", "File Excel seluruh departemen telah diunduh.");
     }
 </script>
-
 </body>
 </html>
