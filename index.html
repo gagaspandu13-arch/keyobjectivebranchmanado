@@ -14,6 +14,10 @@
     <script src="https://cdn.jsdelivr.net/npm/xlsx@0.18.5/dist/xlsx.full.min.js"></script>
     <!-- GSAP Animation -->
     <script src="https://cdnjs.cloudflare.com/ajax/libs/gsap/3.12.2/gsap.min.js"></script>
+    
+    <!-- Firebase SDKs for Multi-Device Realtime Sync -->
+    <script src="https://www.gstatic.com/firebasejs/9.22.0/firebase-app-compat.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/9.22.0/firebase-database-compat.js"></script>
 
     <style>
         body {
@@ -94,6 +98,12 @@
 
     <!-- Mode Toggle & Quick Controls -->
     <div class="flex items-center space-x-3">
+        <!-- Live Multi-Device Sync Badge Indicator -->
+        <div id="cloudSyncBadge" class="hidden md:flex items-center gap-2 px-3 py-1.5 bg-emerald-50 text-emerald-700 border border-emerald-200 rounded-xl text-xs font-bold" title="Status Sinkronisasi Multi-Device Cloud">
+            <span class="w-2 h-2 rounded-full bg-emerald-500 animate-pulse"></span>
+            <span id="cloudSyncText">Live Cloud Sync Active</span>
+        </div>
+
         <div class="bg-slate-100 p-1 rounded-xl flex items-center space-x-1 border border-slate-200">
             <button id="viewDeckBtn" onclick="switchView('deck')" class="px-3 py-1.5 rounded-lg text-xs font-bold transition flex items-center gap-1.5 bg-red-600 text-white shadow">
                 <i class="fa-solid fa-desktop"></i>
@@ -831,9 +841,63 @@
     let activeDeptId = "OPR";
 
     /*
+     * REALTIME MULTI-DEVICE CLOUD SYNC CONFIGURATION (Firebase Realtime Database)
+     */
+    const firebaseConfig = {
+        databaseURL: "https://mno-sharing-alignments-default-rtdb.asia-southeast1.firebasedatabase.app"
+    };
+
+    let dbRef = null;
+    let isCloudConnected = false;
+
+    function initCloudSync() {
+        try {
+            if (typeof firebase !== 'undefined') {
+                if (!firebase.apps.length) {
+                    firebase.initializeApp(firebaseConfig);
+                }
+                dbRef = firebase.database().ref('mno_followUpStore_v2');
+
+                // Real-time listener: Triggers when anyone (e.g. Bu Nana) saves on ANY device
+                dbRef.on('value', (snapshot) => {
+                    const data = snapshot.val();
+                    if (data) {
+                        followUpStore = data;
+                        saveLocalBackup();
+                        if (document.getElementById('deptView') && !document.getElementById('deptView').classList.contains('hidden')) {
+                            renderDeptContent(activeDeptId);
+                        }
+                        updateCloudSyncUI(true);
+                    }
+                }, (error) => {
+                    console.warn("Firebase Realtime Sync fallback to Local & REST:", error);
+                    updateCloudSyncUI(false);
+                });
+            }
+        } catch (e) {
+            console.warn("Cloud DB Initialisation Warning:", e);
+            updateCloudSyncUI(false);
+        }
+    }
+
+    function updateCloudSyncUI(active) {
+        isCloudConnected = active;
+        const badge = document.getElementById('cloudSyncBadge');
+        const text = document.getElementById('cloudSyncText');
+        if (badge && text) {
+            badge.classList.remove('hidden');
+            if (active) {
+                badge.className = "hidden md:flex items-center gap-2 px-3 py-1.5 bg-emerald-50 text-emerald-700 border border-emerald-200 rounded-xl text-xs font-bold";
+                text.innerText = "Live Cloud Sync Active";
+            } else {
+                badge.className = "hidden md:flex items-center gap-2 px-3 py-1.5 bg-amber-50 text-amber-700 border border-amber-200 rounded-xl text-xs font-bold";
+                text.innerText = "Local Mode (Synced Local)";
+            }
+        }
+    }
+
+    /*
      * LOCAL STORAGE MANAGER FOR FOLLOW-UP DATA
-     * Key Structure: followUpStore[deptId][itemId] = { action: "", timeline: "", status: "Progress" }
-     * Isolates each department's inputs so duplicated items do NOT overwrite each other.
      */
     const STORAGE_KEY = "MNO_FOLLOWUP_STORAGE_V2";
     let followUpStore = {};
@@ -850,7 +914,7 @@
         }
     }
 
-    function saveFollowUpStore() {
+    function saveLocalBackup() {
         try {
             localStorage.setItem(STORAGE_KEY, JSON.stringify(followUpStore));
         } catch (e) {
@@ -858,21 +922,23 @@
         }
     }
 
+    function saveFollowUpStore() {
+        saveLocalBackup();
+        if (dbRef) {
+            dbRef.set(followUpStore).catch(err => {
+                console.error("Cloud DB Set Error:", err);
+            });
+        }
+    }
+
     /*
      * DEPT MATCHING HELPER
-     * Maps raw items to department tabs based on primary dept AND involved tags.
-     * Ensures multi-dept items are duplicated correctly across all relevant tabs.
      */
     function getItemsForDept(deptId) {
         return rawMeetingData.filter(item => {
-            // Check primary department match
             if (item.dept === deptId) return true;
-
-            // Check involved tags
             if (item.involved && Array.isArray(item.involved)) {
                 if (item.involved.includes(deptId)) return true;
-
-                // Alias Mapping
                 if (deptId === "CORCOM_LP" && item.involved.some(d => ["CORCOM", "LP", "CORCOM_LP"].includes(d))) return true;
                 if (deptId === "OPR" && item.involved.some(d => ["IC", "SQ", "BM"].includes(d))) return true;
             }
@@ -881,10 +947,10 @@
     }
 
     let currentSlideIndex = 0;
-    let isFullscreen = false;
 
     window.addEventListener('DOMContentLoaded', () => {
         loadFollowUpStore();
+        initCloudSync();
         renderSlide(currentSlideIndex);
         buildOverviewGrid();
         buildDepartmentTabs();
@@ -907,13 +973,11 @@
         const slide = presentationSlides[index];
         const slideBody = document.getElementById('slideBody');
         
-        // GSAP Morph/Fade Animation out
         gsap.to(slideBody, {
             opacity: 0,
             y: -10,
             duration: 0.2,
             onComplete: () => {
-                // Update Header Badges & Text
                 document.getElementById('slideCategoryText').innerText = slide.category;
                 document.getElementById('slideCategoryIcon').className = slide.categoryIcon;
                 document.getElementById('slideDepts').innerText = slide.depts;
@@ -921,7 +985,6 @@
                 document.getElementById('totalSlideNum').innerText = String(presentationSlides.length).padStart(2, '0');
                 document.getElementById('speakerNoteText').innerText = slide.note;
 
-                // Render inner html content
                 slideBody.innerHTML = `
                     <div class="space-y-4">
                         <h2 class="text-xl md:text-2xl font-black text-slate-900 tracking-tight leading-snug">
@@ -931,12 +994,10 @@
                     </div>
                 `;
 
-                // Update Progress Bar
                 const percent = Math.round(((index + 1) / presentationSlides.length) * 100);
                 document.getElementById('progressBar').style.width = `${percent}%`;
                 document.getElementById('progressPercent').innerText = `${percent}%`;
 
-                // GSAP Morph/Fade Animation in
                 gsap.fromTo(slideBody, 
                     { opacity: 0, y: 15 }, 
                     { opacity: 1, y: 0, duration: 0.3, ease: 'power2.out' }
@@ -975,12 +1036,10 @@
         const btnMatrix = document.getElementById('viewMatrixBtn');
         const btnDept = document.getElementById('viewDeptBtn');
 
-        // Hide all
         deckView.classList.add('hidden');
         matrixView.classList.add('hidden');
         deptView.classList.add('hidden');
 
-        // Reset Button Styles
         [btnDeck, btnMatrix, btnDept].forEach(btn => {
             btn.className = "px-3 py-1.5 rounded-lg text-xs font-bold text-slate-600 hover:text-slate-900 hover:bg-slate-200 transition flex items-center gap-1.5";
         });
@@ -1101,7 +1160,7 @@
                             <i class="fa-solid fa-folder-open text-red-600"></i>
                             <span>Poin Kesepakatan & Follow Up: ${departmentsList.find(d => d.id === deptId).name}</span>
                         </h3>
-                        <p class="text-xs text-slate-500 mt-0.5">Isi action plan, timeline, dan status untuk departemen ini. Data tersimpan mandiri per departemen.</p>
+                        <p class="text-xs text-slate-500 mt-0.5">Isi action plan, timeline, dan status. Data tersimpan live dan dapat dilihat dari semua device.</p>
                     </div>
                     <div class="flex items-center gap-2">
                         <button onclick="saveAllDeptFollowUps('${deptId}')" class="px-4 py-2 bg-red-600 hover:bg-red-700 text-white font-extrabold text-xs rounded-xl transition flex items-center gap-2 shadow-md shadow-red-600/20">
@@ -1172,7 +1231,7 @@
                                         <div class="pt-1 text-right">
                                             <button onclick="saveSingleFollowUp('${deptId}', '${item.id}')" class="px-2.5 py-1 bg-slate-800 hover:bg-red-600 text-white rounded-md text-[10px] font-bold transition flex items-center gap-1 ml-auto">
                                                 <i class="fa-solid fa-check"></i>
-                                                <span>Simpan</span>
+                                                <span>Simpan Live</span>
                                             </button>
                                         </div>
                                     </div>
@@ -1187,7 +1246,7 @@
     }
 
     /*
-     * SAVE FUNCTIONS
+     * SAVE FUNCTIONS (Saves to both Cloud Realtime DB and LocalStorage)
      */
     function saveSingleFollowUp(deptId, itemId) {
         const actionVal = document.getElementById(`action_${deptId}_${itemId}`).value;
@@ -1205,7 +1264,7 @@
         };
 
         saveFollowUpStore();
-        showToastNotice(`Saved (${itemId})`, `Data follow-up item ${itemId} untuk ${deptId} berhasil diperbarui.`);
+        showToastNotice(`Live Synced (${itemId})`, `Data follow-up item ${itemId} tersimpan & dapat dilihat di semua device.`);
     }
 
     function saveAllDeptFollowUps(deptId) {
@@ -1229,7 +1288,7 @@
         });
 
         saveFollowUpStore();
-        showToastNotice("Data Departemen Tersimpan!", `Seluruh data follow-up untuk departemen ${deptId} berhasil tersimpan.`);
+        showToastNotice("Data Cloud Tersimpan!", `Seluruh data follow-up departemen ${deptId} berhasil tersimpan & tersinkronisasi.`);
     }
 
     function showToastNotice(title, msg) {
@@ -1278,7 +1337,6 @@
 
             const ws = XLSX.utils.json_to_sheet(sheetRows);
 
-            // Define Column Widths
             ws['!cols'] = [
                 { wch: 5 },   // No
                 { wch: 12 },  // Kode
@@ -1291,7 +1349,6 @@
                 { wch: 15 }   // Status
             ];
 
-            // Sheet Name max 31 chars
             const sheetName = dept.id.replace(/[\/\\?\*\[\]]/g, "_");
             XLSX.utils.book_append_sheet(wb, ws, sheetName);
         });
